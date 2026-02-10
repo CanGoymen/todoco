@@ -1,0 +1,45 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: todoco-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: todoco
+      MONGO_INITDB_ROOT_PASSWORD: todoco-local-password
+      MONGO_INITDB_DATABASE: todoco
+    ports:
+      - "27017:27017"
+    volumes:
+      - todoco_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet mongodb://$$MONGO_INITDB_ROOT_USERNAME:$$MONGO_INITDB_ROOT_PASSWORD@127.0.0.1:27017/admin --eval 'db.runCommand({ ping: 1 }).ok' | grep 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  todoco-server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: todoco-server
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8787
+      MONGO_URI: mongodb://todoco:todoco-local-password@mongodb:27017/todoco?authSource=admin
+      MONGO_DB: todoco
+      TODOCO_TOKEN: dev-token
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123
+      ADMIN_FULL_NAME: Admin User
+      ADMIN_EMAIL: admin@todoco.local
+      ADMIN_TOKEN_SECRET: dev-admin-token-secret
+      ADMIN_TOKEN_TTL_SEC: "43200"
+    ports:
+      - "8787:8787"
+
+volumes:
+  todoco_mongo_data:

@@ -1,0 +1,10 @@
+{
+  "name": "@todoco/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./task": "./src/task.js",
+    "./markdown": "./src/markdown.js"
+  }
+}

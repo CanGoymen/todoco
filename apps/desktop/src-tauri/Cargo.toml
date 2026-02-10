@@ -1,0 +1,23 @@
+[package]
+name = "todoco"
+version = "1.0.0"
+description = "TodoCo tray app"
+authors = ["TodoCo Team"]
+license = "MIT"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+tauri = { version = "1.6", features = [ "macos-private-api", "api-all", "system-tray"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.25"
+objc = "0.2"
+core-foundation = "0.9"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

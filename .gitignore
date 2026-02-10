@@ -1,0 +1,15 @@
+node_modules
+.DS_Store
+/dist
+/apps/desktop/src-tauri/target
+.claude
+AGENTS.md
+/apps/desktop/dist
+/apps/desktop/dist-ssr
+/nginx
+/k8s
+.env.production
+.env.local
+docker-compose.override.yml
+docker-bake.hcl
+DEPLOYMENT.md

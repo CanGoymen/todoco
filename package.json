@@ -1,0 +1,15 @@
+{
+  "name": "todoco",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:server": "npm --workspace @todoco/server run dev",
+    "dev:desktop": "npm --workspace @todoco/desktop run tauri:dev",
+    "build:desktop": "npm --workspace @todoco/desktop run tauri:build",
+    "test": "node --test packages/shared/test/*.test.js"
+  }
+}
