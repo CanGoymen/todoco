@@ -238,6 +238,4 @@ See [`LICENSE.md`](./LICENSE.md) for full text.
 
 ---
 
-<p align="center">
-  <a href="https://www.buymeacoffee.com/cangoymen"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=cangoymen&button_colour=5F7FFF&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" alt="Buy Me A Coffee" /></a>
-</p>
+[![Buy Me a Coffee](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=&slug=cangoymen&button_colour=5F7FFF&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00)](https://www.buymeacoffee.com/cangoymen)
