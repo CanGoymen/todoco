@@ -45,22 +45,11 @@ Note: Releases are not published yet. The first `.dmg` will be uploaded to GitHu
 
 ## 📸 Screenshots
 
-Move from sign-up to collaboration in seconds.
+![Overall](./docs/screenshots/overall.png)
 
-- Share tasks with teammates instantly, and stay up to date with realtime changes.
-- Create multiple workspaces and manage each team space independently.
-
-| Register | Share in Realtime | Workspace Management |
-|----------|-------------------|----------------------|
-| ![Register](./docs/screenshots/register.png) | ![Share in Realtime](./docs/screenshots/share.png) | ![Workspace Management](./docs/screenshots/workspace.png) |
-
-| Tray Popup | Markdown Editor |
-|------------|-----------------|
-| ![Tray Popup](./docs/screenshots/tray-popup.png) | ![Markdown Editor](./docs/screenshots/markdown-editor.png) |
-
-| Login Screen | Admin Users |
-|--------------|-------------|
-| ![Login Screen](./docs/screenshots/login-screen.png) | ![Admin Users](./docs/screenshots/admin-users.png) |
+| Register | Share | Workspace | Tray Popup | Markdown | Login | Admin |
+|----------|-------|-----------|------------|----------|-------|-------|
+| ![Register](./docs/screenshots/register.png) | ![Share](./docs/screenshots/share.png) | ![Workspace](./docs/screenshots/workspace.png) | ![Tray Popup](./docs/screenshots/tray-popup.png) | ![Markdown Editor](./docs/screenshots/markdown-editor.png) | ![Login Screen](./docs/screenshots/login-screen.png) | ![Admin Users](./docs/screenshots/admin-users.png) |
 
 Screenshot naming and sizing guide: `docs/screenshots/README.md`.
 

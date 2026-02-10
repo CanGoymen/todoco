@@ -12,6 +12,7 @@ Required files:
 - `register.png` (register flow screen)
 - `share.png` (realtime team sharing view)
 - `workspace.png` (workspace creation/management view)
+- `overall.png` (hero screenshot for README top screenshot row)
 
 Recommended capture width:
 
