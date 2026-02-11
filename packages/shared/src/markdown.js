@@ -19,7 +19,7 @@ function resolveAssignee(rawName, assigneeLookup) {
     };
   }
 
-  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "unassigned";
+  const id = name.toLowerCase().replace(/\s+/g, "-").replace(/(^-|-$)/g, "") || "unassigned";
   return { id, name };
 }
 

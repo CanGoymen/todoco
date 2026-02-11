@@ -1,6 +1,28 @@
 export function createRealtimeHub() {
   const clientsByWorkspace = new Map();
   const clientMetadata = new Map(); // Map<ws, {workspaceId, username}>
+  const aliveClients = new Set();
+
+  // Heartbeat: 30s ping, terminate if no pong within next cycle
+  const PING_INTERVAL = 30_000;
+  const heartbeat = setInterval(() => {
+    clientMetadata.forEach((meta, ws) => {
+      if (!aliveClients.has(ws)) {
+        // No pong since last ping — dead connection
+        const workspaceId = meta.workspaceId;
+        ws.terminate();
+        const clients = clientsByWorkspace.get(workspaceId);
+        if (clients) clients.delete(ws);
+        clientMetadata.delete(ws);
+        aliveClients.delete(ws);
+        if (workspaceId) notifyPresence(workspaceId);
+        return;
+      }
+      aliveClients.delete(ws);
+      ws.ping();
+    });
+  }, PING_INTERVAL);
+  heartbeat.unref();
 
   function getWorkspaceClients(workspaceId) {
     if (!clientsByWorkspace.has(workspaceId)) {
@@ -26,45 +48,38 @@ export function createRealtimeHub() {
     });
   }
 
-  function notifyPresence(workspaceId) {
+  function getPresencePayload(workspaceId) {
     const clients = getWorkspaceClients(workspaceId);
-
-    // Unique user'ları say (aynı user birden fazla connection açabilir)
     const uniqueUsers = new Set();
     clients.forEach((ws) => {
       const metadata = clientMetadata.get(ws);
-      console.log("🔍 Client metadata:", metadata);
-      if (metadata?.username) {
-        uniqueUsers.add(metadata.username);
-      }
+      if (metadata?.username) uniqueUsers.add(metadata.username);
     });
-
-    console.log("📢 Broadcasting presence:", {
-      workspaceId,
-      connected: uniqueUsers.size,
-      online_users: Array.from(uniqueUsers)
-    });
-
-    broadcast(workspaceId, {
+    return {
       type: "user_presence_update",
       payload: {
         workspace_id: workspaceId,
         connected: uniqueUsers.size,
         online_users: Array.from(uniqueUsers)
       }
-    });
+    };
+  }
+
+  function notifyPresence(workspaceId) {
+    broadcast(workspaceId, getPresencePayload(workspaceId));
   }
 
   function addClient(workspaceId, ws, username) {
     const clients = getWorkspaceClients(workspaceId);
     clients.add(ws);
 
+    // Heartbeat tracking
+    aliveClients.add(ws);
+    ws.on("pong", () => aliveClients.add(ws));
+
     // Client metadata sakla
     if (username) {
       clientMetadata.set(ws, { workspaceId, username });
-      console.log("✅ Stored client metadata:", { workspaceId, username, totalMetadata: clientMetadata.size });
-    } else {
-      console.log("⚠️  No username provided for client");
     }
 
     notifyPresence(workspaceId);
@@ -74,6 +89,7 @@ export function createRealtimeHub() {
     const clients = getWorkspaceClients(workspaceId);
     clients.delete(ws);
     clientMetadata.delete(ws);
+    aliveClients.delete(ws);
     notifyPresence(workspaceId);
   }
 
@@ -82,6 +98,7 @@ export function createRealtimeHub() {
     removeClient,
     send,
     broadcast,
-    broadcastAll
+    broadcastAll,
+    getPresencePayload
   };
 }

@@ -164,12 +164,12 @@ function markdownToTasks(markdown, existingTasks) {
       text = text.replace(/\s*\(\d+%\)/, "");
     }
 
-    // Extract assignee
-    const assigneeMatch = text.match(/@([\w\s]+)$/);
-    if (assigneeMatch) {
-      assignee_name = assigneeMatch[1].trim();
+    // Extract assignee (Unicode-safe: match everything after last @)
+    const atIdx = text.lastIndexOf("@");
+    if (atIdx >= 0 && atIdx < text.length - 1) {
+      assignee_name = text.slice(atIdx + 1).trim();
       assignee_id = assignee_name.toLowerCase().replace(/\s+/g, "");
-      text = text.replace(/@[\w\s]+$/, "").trim();
+      text = text.slice(0, atIdx).trim();
     }
 
     // Handle duplicate texts - append number if already seen

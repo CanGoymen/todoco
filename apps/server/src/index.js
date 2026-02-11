@@ -672,6 +672,7 @@ app.register(async function (fastify) {
         type: "task_list_full",
         payload: { tasks: await getTasks(workspaceId) }
       });
+      hub.send(socket, hub.getPresencePayload(workspaceId));
     })().catch(() => {
       socket.close(1011, "init_failed");
     });
@@ -685,6 +686,7 @@ app.register(async function (fastify) {
             type: "task_list_full",
             payload: { tasks: await getTasks(workspaceId) }
           });
+          hub.send(socket, hub.getPresencePayload(workspaceId));
           return;
         }
 
