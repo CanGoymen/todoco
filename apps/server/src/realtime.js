@@ -20,6 +20,12 @@ export function createRealtimeHub() {
     clients.forEach((ws) => send(ws, payload));
   }
 
+  function broadcastAll(payload) {
+    clientsByWorkspace.forEach((clients) => {
+      clients.forEach((ws) => send(ws, payload));
+    });
+  }
+
   function notifyPresence(workspaceId) {
     const clients = getWorkspaceClients(workspaceId);
 
@@ -75,6 +81,7 @@ export function createRealtimeHub() {
     addClient,
     removeClient,
     send,
-    broadcast
+    broadcast,
+    broadcastAll
   };
 }

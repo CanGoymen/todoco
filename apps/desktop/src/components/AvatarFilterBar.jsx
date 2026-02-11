@@ -28,10 +28,11 @@ export function AvatarFilterBar({ options, active, onChange, loggedInUserId, onl
     <div className="avatar-bar">
       {options.map((option) => {
         const presenceClass = getPresenceClass(option.id);
+        const nonMemberClass = option.isWorkspaceMember === false ? "non-member" : "";
         return (
           <button
             key={option.id}
-            className={`avatar-pill ${active === option.id ? "active" : ""} ${presenceClass}`}
+            className={`avatar-pill ${active === option.id ? "active" : ""} ${presenceClass} ${nonMemberClass}`}
             onClick={() => onChange(option.id)}
             type="button"
             title={option.label}

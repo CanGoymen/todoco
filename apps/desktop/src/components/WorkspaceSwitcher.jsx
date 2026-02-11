@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { getLoggedInUser } from "../lib/config.js";
+import { useState, useEffect, useRef } from "react";
+import { getLoggedInUser, setLoggedInUser } from "../lib/config.js";
+import { updateProfile } from "../lib/api.js";
 
 function LogoutIcon() {
   return (
@@ -12,8 +13,8 @@ function LogoutIcon() {
 function SettingsIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
 }
@@ -26,21 +27,36 @@ function ChevronIcon() {
   );
 }
 
+function initials(name) {
+  return String(name || "")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+}
+
 export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorkspaces, onSwitchWorkspace, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
   const [fullName, setFullName] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [avatarBase64, setAvatarBase64] = useState("");
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const fileInputRef = useRef(null);
+  const nameInputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
       const loggedInUser = getLoggedInUser();
       setUser(loggedInUser);
       setFullName(loggedInUser?.full_name || "");
+      setAvatarBase64(loggedInUser?.avatar_base64 || "");
+      setEditingName(false);
     }
   }, [isOpen]);
 
@@ -57,6 +73,13 @@ export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorks
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    if (editingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [editingName]);
+
   if (!isOpen) return null;
 
   const handleSwitchWorkspace = async (workspaceId) => {
@@ -72,11 +95,78 @@ export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorks
     }
   };
 
-  const handleFullNameBlur = async () => {
-    if (fullName === user?.full_name) return;
+  const handleNameSave = async () => {
+    setEditingName(false);
+    if (fullName.trim() === (user?.full_name || "")) return;
 
-    // TODO: Auto-save full name
-    // await updateProfile({ full_name: fullName });
+    try {
+      const result = await updateProfile({ full_name: fullName.trim() });
+      if (result.user) {
+        const updated = { ...user, full_name: result.user.full_name };
+        setUser(updated);
+        setLoggedInUser(updated, localStorage.getItem("todoco_token"));
+      }
+    } catch (error) {
+      console.error("Failed to update name:", error);
+      setFullName(user?.full_name || "");
+    }
+  };
+
+  const handleNameKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleNameSave();
+    } else if (e.key === "Escape") {
+      setFullName(user?.full_name || "");
+      setEditingName(false);
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const base64 = ev.target.result;
+
+      // Resize to max 128px for storage efficiency
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 128;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        const resized = canvas.toDataURL("image/jpeg", 0.85);
+
+        setAvatarBase64(resized);
+        try {
+          const result = await updateProfile({ avatar_base64: resized });
+          if (result.user) {
+            const updated = { ...user, avatar_base64: result.user.avatar_base64 };
+            setUser(updated);
+            setLoggedInUser(updated, localStorage.getItem("todoco_token"));
+          }
+        } catch (error) {
+          console.error("Failed to update avatar:", error);
+          setAvatarBase64(user?.avatar_base64 || "");
+        }
+      };
+      img.src = base64;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   const handleChangePassword = async () => {
@@ -97,9 +187,7 @@ export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorks
       return;
     }
 
-    // TODO: Change password API call
     try {
-      // await changePassword({ currentPassword, newPassword });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -119,7 +207,7 @@ export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorks
   return (
     <div className="settings-modal-overlay" onClick={handleOverlayClick}>
       <div className="settings-modal settings-modal-ios">
-        <div className="settings-header-ios">
+        <div className="settings-header-ios settings-header-compact">
           <button className="settings-close-ios" onClick={onClose}>
             Done
           </button>
@@ -127,22 +215,52 @@ export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorks
         </div>
 
         <div className="settings-content-ios">
-          {/* Profile Group */}
+          {/* Profile Card */}
           <div className="settings-group-ios">
-            <div className="settings-row-ios">
-              <span className="settings-label-ios">Email</span>
-              <span className="settings-value-ios">{user?.email || ""}</span>
-            </div>
-            <div className="settings-row-ios">
-              <span className="settings-label-ios">Name</span>
-              <input
-                type="text"
-                className="settings-input-ios"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                onBlur={handleFullNameBlur}
-                placeholder="Enter your name"
-              />
+            <div className="settings-profile-card">
+              <div className="settings-avatar-wrapper" onClick={handleAvatarClick}>
+                {avatarBase64 ? (
+                  <img src={avatarBase64} alt="Avatar" className="settings-avatar-img" />
+                ) : (
+                  <div className="settings-avatar-initials">
+                    {initials(fullName || user?.username || "")}
+                  </div>
+                )}
+                <div className="settings-avatar-edit">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                    <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={handleAvatarChange}
+                />
+              </div>
+              <div className="settings-profile-info">
+                {editingName ? (
+                  <input
+                    ref={nameInputRef}
+                    type="text"
+                    className="settings-profile-name-input"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    onBlur={handleNameSave}
+                    onKeyDown={handleNameKeyDown}
+                  />
+                ) : (
+                  <div
+                    className="settings-profile-name"
+                    onClick={() => setEditingName(true)}
+                    title="Click to edit name"
+                  >
+                    {fullName || user?.username || ""}
+                  </div>
+                )}
+                <div className="settings-profile-email">{user?.email || ""}</div>
+              </div>
             </div>
           </div>
 
@@ -199,8 +317,8 @@ export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorks
           </div>
 
           {/* Workspaces Group */}
+          <div className="settings-group-header-ios">Workspaces</div>
           <div className="settings-group-ios">
-            <div className="settings-group-header-ios">Workspaces</div>
             {userWorkspaces.map((ws) => (
               <button
                 key={ws}
@@ -210,7 +328,7 @@ export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorks
               >
                 <span className="settings-label-ios">{ws}</span>
                 {ws === currentWorkspace && (
-                  <span className="settings-checkmark-ios">✓</span>
+                  <span className="settings-checkmark-ios">&#10003;</span>
                 )}
               </button>
             ))}

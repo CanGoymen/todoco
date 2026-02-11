@@ -117,6 +117,35 @@ export async function getUserWorkspaces() {
   return data.workspaces || [];
 }
 
+export async function getWorkspaceMembers(workspaceId) {
+  const { apiBase } = getRuntimeConfig();
+  const response = await fetch(`${apiBase}/workspace/${workspaceId}/members`, {
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(`get_workspace_members_failed:${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.members || [];
+}
+
+export async function updateProfile(data) {
+  const { apiBase } = getRuntimeConfig();
+  const response = await fetch(`${apiBase}/profile`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(data)
+  });
+
+  if (!response.ok) {
+    throw new Error(`profile_update_failed:${response.status}`);
+  }
+
+  return response.json();
+}
+
 function authHeaders() {
   const { token, workspace } = getRuntimeConfig();
   const user = getLoggedInUser();

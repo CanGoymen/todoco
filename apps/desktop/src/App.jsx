@@ -7,8 +7,9 @@ import { RegisterScreen } from "./components/RegisterScreen.jsx";
 import { ShareModal, ShareIcon } from "./components/ShareModal.jsx";
 import { TaskList } from "./components/TaskList.jsx";
 import { WorkspaceJoinScreen } from "./components/WorkspaceJoinScreen.jsx";
+import { WorkspaceSelectionScreen } from "./components/WorkspaceSelectionScreen.jsx";
 import { WorkspaceSwitcher, LogoutIcon, SettingsIcon } from "./components/WorkspaceSwitcher.jsx";
-import { bulkUpdateTasks, checkWorkspaceExists, connectRealtime, createTask, createWorkspace, fetchTasks, getUserWorkspaces, getWorkspaceInfo, joinWorkspace, login as apiLogin, register as apiRegister, toggleTask, updateTaskProgress } from "./lib/api.js";
+import { bulkUpdateTasks, checkWorkspaceExists, connectRealtime, createTask, createWorkspace, fetchTasks, getUserWorkspaces, getWorkspaceInfo, getWorkspaceMembers, joinWorkspace, login as apiLogin, register as apiRegister, toggleTask, updateTaskProgress } from "./lib/api.js";
 import { readCachedTasks, writeCachedTasks } from "./lib/cache.js";
 import { clearLoggedInUser, getLoggedInUser, getRuntimeConfig, setLoggedInUser } from "./lib/config.js";
 import { getSystemIdleTime, isTauriRuntime, openEditorWindow, showNotification } from "./lib/tauri.js";
@@ -31,19 +32,33 @@ function readPriority(task, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function assigneesFromTasks(tasks, loggedInUser) {
+function assigneesFromTasks(tasks, loggedInUser, userDirectory = {}) {
   const base = [UNASSIGNED];
   if (loggedInUser) {
+    const currentUserProfile = userDirectory[loggedInUser.username];
     base.push({
       id: loggedInUser.username,
       name: loggedInUser.full_name,
-      avatar_base64: loggedInUser.avatar_base64 || ""
+      avatar_base64: currentUserProfile?.avatar_base64 || loggedInUser.avatar_base64 || ""
     });
   }
   const map = new Map(base.map((item) => [item.id, item]));
   tasks.forEach((task) => {
+    const profile = userDirectory[task.assignee_id];
     if (!map.has(task.assignee_id)) {
-      map.set(task.assignee_id, { id: task.assignee_id, name: task.assignee_name });
+      map.set(task.assignee_id, {
+        id: task.assignee_id,
+        name: task.assignee_name,
+        avatar_base64: profile?.avatar_base64 || ""
+      });
+      return;
+    }
+
+    if (profile?.avatar_base64) {
+      map.set(task.assignee_id, {
+        ...map.get(task.assignee_id),
+        avatar_base64: profile.avatar_base64
+      });
     }
   });
   return [...map.values()];
@@ -174,6 +189,19 @@ function markdownToTasks(markdown, existingTasks) {
 
 export function App() {
   const [user, setUser] = useState(() => getLoggedInUser());
+  const [userDirectory, setUserDirectory] = useState(() => {
+    const currentUser = getLoggedInUser();
+    if (!currentUser?.username) {
+      return {};
+    }
+
+    return {
+      [currentUser.username]: {
+        name: currentUser.full_name || currentUser.username,
+        avatar_base64: currentUser.avatar_base64 || ""
+      }
+    };
+  });
   const [tasks, setTasks] = useState([]);
   const [activeAssignee, setActiveAssignee] = useState("all");
   const [presence, setPresence] = useState(0);
@@ -198,29 +226,58 @@ export function App() {
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
   const [userWorkspaces, setUserWorkspaces] = useState([]);
   const [currentWorkspace, setCurrentWorkspace] = useState(() => getRuntimeConfig().workspace);
+  const [workspaceMembers, setWorkspaceMembers] = useState([]);
   const [markdownEditMode, setMarkdownEditMode] = useState(false);
   const [markdownText, setMarkdownText] = useState("");
 
   async function handleLogin(email, password) {
     const response = await apiLogin(email, password);
 
-    // Check if user has a valid workspace
-    const currentWorkspace = localStorage.getItem("todoco_workspace");
+    // Temporarily set token for API calls
+    setLoggedInUser(response.user, response.token);
 
-    if (!currentWorkspace) {
-      // No workspace selected, prompt user to join/create one
+    try {
+      // Fetch user's workspaces
+      const workspacesData = await getUserWorkspaces();
+      const userWorkspaces = workspacesData || [];
+
+      if (userWorkspaces.length === 0) {
+        // No workspaces - go to join/create screen
+        setRegistrationData({
+          email,
+          token: response.token,
+          user: response.user
+        });
+        setAuthView("workspace-join");
+        return;
+      }
+
+      if (userWorkspaces.length === 1) {
+        // Single workspace - auto-select
+        const ws = userWorkspaces[0];
+        localStorage.setItem("todoco_workspace", ws.workspace_id);
+        setUser(response.user);
+        return;
+      }
+
+      // Multiple workspaces - show selection screen
+      setRegistrationData({
+        email,
+        token: response.token,
+        user: response.user,
+        workspaces: userWorkspaces
+      });
+      setAuthView("workspace-selection");
+    } catch (err) {
+      // Network error - fallback to WorkspaceJoinScreen
+      console.error("Failed to fetch workspaces:", err);
       setRegistrationData({
         email,
         token: response.token,
         user: response.user
       });
       setAuthView("workspace-join");
-      return;
     }
-
-    // User has workspace, proceed with login
-    setLoggedInUser(response.user, response.token);
-    setUser(response.user);
   }
 
   async function handleRegister(email, password, fullName) {
@@ -260,9 +317,21 @@ export function App() {
     setAuthView("login");
   }
 
+  function handleSelectWorkspace(workspaceId) {
+    localStorage.setItem("todoco_workspace", workspaceId);
+    setUser(registrationData.user);
+    setRegistrationData(null);
+    setAuthView("login");
+  }
+
+  function handleJoinAnotherWorkspace() {
+    setAuthView("workspace-join");
+  }
+
   function handleLogout() {
     clearLoggedInUser();
     setUser(null);
+    setUserDirectory({});
     setTasks([]);
     setAuthView("login");
     setRegistrationData(null);
@@ -321,6 +390,17 @@ export function App() {
       const next = await fetchTasks();
       setTasks(next);
       writeCachedTasks(next);
+
+      // Fetch workspace members
+      const workspace = getRuntimeConfig().workspace;
+      if (workspace) {
+        try {
+          const members = await getWorkspaceMembers(workspace);
+          setWorkspaceMembers(members);
+        } catch (err) {
+          console.error("Failed to fetch workspace members:", err);
+        }
+      }
     } catch (err) {
       if (String(err?.message || "").includes("401")) {
         handleLogout();
@@ -329,6 +409,20 @@ export function App() {
       setTasks(readCachedTasks());
     }
   }
+
+  useEffect(() => {
+    if (!user?.username) {
+      return;
+    }
+
+    setUserDirectory((current) => ({
+      ...current,
+      [user.username]: {
+        name: user.full_name || user.username,
+        avatar_base64: user.avatar_base64 || ""
+      }
+    }));
+  }, [user?.username, user?.full_name, user?.avatar_base64]);
 
   useEffect(() => {
     let ws;
@@ -441,6 +535,29 @@ export function App() {
           setUser(updatedUser);
           setLoggedInUser(updatedUser, getRuntimeConfig().token);
         }
+
+        setUserDirectory((current) => {
+          const next = { ...current };
+          const oldProfile = oldUsername ? next[oldUsername] : null;
+          const newProfile = next[username] || {};
+          const normalizedAvatar = typeof avatar_base64 === "string"
+            ? avatar_base64
+            : (newProfile.avatar_base64 || oldProfile?.avatar_base64 || "");
+          const normalizedName = full_name || newProfile.name || oldProfile?.name || username;
+
+          if (oldUsername && oldUsername !== username) {
+            delete next[oldUsername];
+          }
+
+          if (username) {
+            next[username] = {
+              name: normalizedName,
+              avatar_base64: normalizedAvatar
+            };
+          }
+
+          return next;
+        });
 
         // Task'lardaki assignee_id ve assignee_name'leri güncelle
         setTasks((current) => {
@@ -589,7 +706,7 @@ export function App() {
     };
   }, [isIdle]);
 
-  const addAssignees = useMemo(() => assigneesFromTasks(tasks, user), [tasks, user]);
+  const addAssignees = useMemo(() => assigneesFromTasks(tasks, user, userDirectory), [tasks, user, userDirectory]);
 
   useEffect(() => {
     if (!addAssignees.some((assignee) => assignee.id === quickAssigneeId)) {
@@ -604,12 +721,39 @@ export function App() {
 
   const filters = useMemo(() => {
     const unique = new Map();
+    const workspaceMemberIds = new Set(workspaceMembers.map(m => m.username));
+
+    // Add current user first
     if (user) {
-      unique.set(user.username, { name: user.full_name, avatar_base64: user.avatar_base64 || "" });
+      const currentUserProfile = userDirectory[user.username];
+      unique.set(user.username, {
+        name: user.full_name,
+        avatar_base64: currentUserProfile?.avatar_base64 || user.avatar_base64 || "",
+        isWorkspaceMember: true
+      });
     }
+
+    // Add all workspace members
+    workspaceMembers.forEach((member) => {
+      if (!unique.has(member.username)) {
+        const profile = userDirectory[member.username];
+        unique.set(member.username, {
+          name: member.full_name || member.username,
+          avatar_base64: profile?.avatar_base64 || member.avatar_base64 || "",
+          isWorkspaceMember: true
+        });
+      }
+    });
+
+    // Add users assigned to tasks (may not be workspace members)
     tasks.forEach((task) => {
       if (!unique.has(task.assignee_id)) {
-        unique.set(task.assignee_id, { name: task.assignee_name, avatar_base64: "" });
+        const profile = userDirectory[task.assignee_id];
+        unique.set(task.assignee_id, {
+          name: profile?.name || task.assignee_name,
+          avatar_base64: profile?.avatar_base64 || "",
+          isWorkspaceMember: workspaceMemberIds.has(task.assignee_id)
+        });
       }
     });
 
@@ -618,10 +762,11 @@ export function App() {
       ...[...unique.entries()].map(([id, data]) => ({
         id,
         label: data.name,
-        avatar_base64: data.avatar_base64
+        avatar_base64: data.avatar_base64,
+        isWorkspaceMember: data.isWorkspaceMember
       }))
     ];
-  }, [tasks, user]);
+  }, [tasks, user, userDirectory, workspaceMembers]);
 
   const visibleTasks = useMemo(() => {
     if (activeAssignee === "all") {
@@ -904,13 +1049,30 @@ export function App() {
       );
     }
 
+    if (authView === "workspace-selection" && registrationData?.workspaces) {
+      return (
+        <WorkspaceSelectionScreen
+          userEmail={registrationData.email}
+          workspaces={registrationData.workspaces}
+          onSelectWorkspace={handleSelectWorkspace}
+          onJoinAnotherWorkspace={handleJoinAnotherWorkspace}
+        />
+      );
+    }
+
     if (authView === "workspace-join" && registrationData) {
       return (
         <WorkspaceJoinScreen
           userEmail={registrationData.email}
+          userWorkspaces={registrationData.workspaces || []}
           onJoinWorkspace={handleJoinWorkspace}
           onCheckWorkspaceExists={checkWorkspaceExists}
           onCreateWorkspace={handleCreateWorkspace}
+          onBackToSelection={
+            registrationData.workspaces?.length > 0
+              ? () => setAuthView("workspace-selection")
+              : null
+          }
         />
       );
     }

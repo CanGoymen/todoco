@@ -122,10 +122,11 @@ fn apply_macos_window_radius(window: &Window, radius: f64) {
     }
 }
 
-fn place_window_near_tray(window: &Window, tray_position: PhysicalPosition<f64>, tray_size: tauri::PhysicalSize<f64>) {
+/// Returns "top" if tray is at top of screen (macOS), "bottom" if at bottom (Windows).
+fn place_window_near_tray(window: &Window, tray_position: PhysicalPosition<f64>, tray_size: tauri::PhysicalSize<f64>) -> &'static str {
     let default_width = 360_i32;
-    let default_height = 560_i32;
-    let spacing = 8_i32;
+    let default_height = 572_i32;
+    let margin = 8_i32;
 
     let (window_width, window_height) = match window.outer_size() {
         Ok(size) => (size.width as i32, size.height as i32),
@@ -133,8 +134,29 @@ fn place_window_near_tray(window: &Window, tray_position: PhysicalPosition<f64>,
     };
 
     let mut x = (tray_position.x + (tray_size.width / 2.0) - (f64::from(window_width) / 2.0)).round() as i32;
-    let mut y = (tray_position.y + tray_size.height + f64::from(spacing)).round() as i32;
 
+    // Determine if tray is at top or bottom of screen
+    let tray_at_top = if let Ok(Some(monitor)) = window.current_monitor() {
+        let screen_height = monitor.size().height as f64;
+        tray_position.y < screen_height / 2.0
+    } else {
+        cfg!(target_os = "macos") // fallback: macOS=top, others=bottom
+    };
+
+    let mut y;
+    let arrow_dir;
+
+    if tray_at_top {
+        // macOS: tray at top — window goes below, arrow points up
+        y = (tray_position.y).round() as i32;
+        arrow_dir = "top";
+    } else {
+        // Windows: tray at bottom — window goes above, arrow points down
+        y = (tray_position.y - f64::from(window_height)).round() as i32;
+        arrow_dir = "bottom";
+    }
+
+    // Keep window within screen bounds
     if let Ok(Some(monitor)) = window.current_monitor() {
         let monitor_pos = monitor.position();
         let monitor_size = monitor.size();
@@ -143,22 +165,14 @@ fn place_window_near_tray(window: &Window, tray_position: PhysicalPosition<f64>,
         let max_x = min_x + monitor_size.width as i32;
         let max_y = min_y + monitor_size.height as i32;
 
-        if y + window_height > max_y {
-            y = (tray_position.y - f64::from(window_height) - f64::from(spacing)).round() as i32;
-        }
-
-        if x + window_width > max_x {
-            x = max_x - window_width - spacing;
-        }
-        if x < min_x {
-            x = min_x + spacing;
-        }
-        if y < min_y {
-            y = min_y + spacing;
-        }
+        if x + window_width > max_x { x = max_x - window_width - margin; }
+        if x < min_x { x = min_x + margin; }
+        if y + window_height > max_y { y = max_y - window_height; }
+        if y < min_y { y = min_y; }
     }
 
     let _ = window.set_position(Position::Physical(PhysicalPosition { x, y }));
+    arrow_dir
 }
 
 fn main() {
@@ -190,7 +204,8 @@ fn main() {
                 if window.is_visible().unwrap_or(false) {
                     let _ = window.hide();
                 } else {
-                    place_window_near_tray(&window, position, size);
+                    let arrow_dir = place_window_near_tray(&window, position, size);
+                    let _ = window.emit("tray-arrow", arrow_dir);
                     let _ = window.emit("sync-now", {});
                     let _ = window.show();
                     let _ = window.set_focus();
@@ -219,7 +234,7 @@ fn main() {
         .setup(|app| {
             let window = app.get_window("main").unwrap();
             #[cfg(target_os = "macos")]
-            apply_macos_window_radius(&window, 16.0);
+            apply_macos_window_radius(&window, 0.0);
             let _ = window.hide();
             Ok(())
         })

@@ -10,6 +10,7 @@
     "dev:server": "npm --workspace @todoco/server run dev",
     "dev:desktop": "npm --workspace @todoco/desktop run tauri:dev",
     "build:desktop": "npm --workspace @todoco/desktop run tauri:build",
+    "build:desktop:signed": "npm --workspace @todoco/desktop run tauri:build:signed",
     "test": "node --test packages/shared/test/*.test.js"
   }
 }

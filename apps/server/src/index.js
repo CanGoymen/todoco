@@ -224,6 +224,48 @@ app.post("/auth/register", async (request, reply) => {
   }
 });
 
+app.patch("/profile", async (request, reply) => {
+  if (!isAuthorized(request)) {
+    return reply.code(401).send({ error: "unauthorized" });
+  }
+
+  try {
+    const userEmail = request.headers["x-user-email"];
+    if (!userEmail) {
+      return reply.code(400).send({ error: "user_email_required" });
+    }
+
+    const user = await getUserByEmail(userEmail);
+    if (!user) {
+      return reply.code(404).send({ error: "user_not_found" });
+    }
+
+    const body = request.body || {};
+    const allowedFields = {};
+    if (typeof body.full_name === "string") allowedFields.full_name = body.full_name;
+    if (typeof body.avatar_base64 === "string") allowedFields.avatar_base64 = body.avatar_base64;
+
+    const updated = await updateUser(user.id, allowedFields);
+
+    if (allowedFields.full_name || allowedFields.avatar_base64 !== undefined) {
+      hub.broadcastAll({
+        type: "user:updated",
+        payload: {
+          old_username: user.username,
+          username: updated.username,
+          full_name: updated.full_name,
+          avatar_base64: updated.avatar_base64 || ""
+        }
+      });
+    }
+
+    return { user: updated };
+  } catch (error) {
+    app.log.error("Error updating profile:", error);
+    return reply.code(500).send({ error: "profile_update_failed" });
+  }
+});
+
 app.get("/workspaces", async (request, reply) => {
   if (!isAuthorized(request)) {
     return reply.code(401).send({ error: "unauthorized" });
@@ -266,6 +308,36 @@ app.get("/workspace/check/:id", async (request) => {
 
   const { id } = request.params;
   return await checkWorkspaceExists(id);
+});
+
+app.get("/workspace/:id/members", async (request, reply) => {
+  if (!isAuthorized(request)) {
+    return reply.code(401).send({ error: "unauthorized" });
+  }
+
+  try {
+    const { id } = request.params;
+    const workspaceId = String(id || "").trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
+
+    // Get all users who are members of this workspace
+    const { users } = mustInit();
+    const members = await users
+      .find({ workspaces: workspaceId })
+      .toArray();
+
+    // Return sanitized user info
+    const memberList = members.map(user => ({
+      username: user.username,
+      full_name: user.full_name,
+      email: user.email,
+      avatar_base64: user.avatar_base64 || ""
+    }));
+
+    return { members: memberList };
+  } catch (error) {
+    app.log.error("Error getting workspace members:", error);
+    return reply.code(500).send({ error: "failed_to_get_members" });
+  }
 });
 
 app.post("/workspace/join", async (request, reply) => {
@@ -346,10 +418,9 @@ app.put("/admin-api/users/:id", async (request, reply) => {
       return reply.code(404).send({ error: "user_not_found" });
     }
 
-    // Eğer username, full_name veya avatar_base64 değiştiyse, workspace'e bildir
+    // If username/full_name/avatar changed, notify all connected workspaces.
     if (body.username !== undefined || body.full_name !== undefined || body.avatar_base64 !== undefined) {
-      // MVP: default workspace'e broadcast (tek workspace var)
-      hub.broadcast("demo", {
+      hub.broadcastAll({
         type: "user:updated",
         payload: {
           old_username: oldUser?.username,

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export function WorkspaceJoinScreen({ userEmail, onJoinWorkspace, onCheckWorkspaceExists, onCreateWorkspace }) {
+export function WorkspaceJoinScreen({ userEmail, userWorkspaces = [], onJoinWorkspace, onCheckWorkspaceExists, onCreateWorkspace, onBackToSelection = null }) {
   const [workspaceName, setWorkspaceName] = useState("");
   const [secret, setSecret] = useState("");
   const [error, setError] = useState("");
@@ -23,6 +23,17 @@ export function WorkspaceJoinScreen({ userEmail, onJoinWorkspace, onCheckWorkspa
     setWorkspaceName(normalizedName);
 
     try {
+      // Check if user is already a member
+      const userIsMember = userWorkspaces.some(ws => ws.workspace_id === normalizedName);
+
+      if (userIsMember) {
+        // User is already a member - auto-join without secret
+        const workspace = userWorkspaces.find(ws => ws.workspace_id === normalizedName);
+        await onJoinWorkspace(normalizedName, workspace.secret, userEmail);
+        return;
+      }
+
+      // User is not a member - check if workspace exists
       const result = await onCheckWorkspaceExists(normalizedName);
       setWorkspaceExists(result.exists);
       if (!result.exists) {
@@ -81,6 +92,18 @@ export function WorkspaceJoinScreen({ userEmail, onJoinWorkspace, onCheckWorkspa
         </svg>
         <h1 className="login-title">Join Workspace</h1>
         <p className="workspace-subtitle">Enter your workspace name to continue</p>
+
+        {onBackToSelection && (
+          <button
+            type="button"
+            className="register-link"
+            onClick={onBackToSelection}
+            disabled={loading || checkingWorkspace}
+            style={{ marginBottom: '12px' }}
+          >
+            ← Back to Workspaces
+          </button>
+        )}
 
         {workspaceExists === null ? (
           <form onSubmit={handleCheckWorkspace}>

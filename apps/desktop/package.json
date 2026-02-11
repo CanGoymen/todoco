@@ -8,6 +8,7 @@
     "web:build": "vite build",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
+    "tauri:build:signed": "APPLE_SIGNING_IDENTITY='Developer ID Application: CURIOSITY TEKNOLOJI ANONIM SIRKETI (F5PYHRTZKN)' tauri build",
     "tauri": "tauri"
   },
   "dependencies": {
