@@ -4,6 +4,7 @@ use tauri::{
     CustomMenuItem, Manager, PhysicalPosition, Position, SystemTray, SystemTrayEvent,
     SystemTrayMenu, Window, WindowEvent,
 };
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 
 #[tauri::command]
 fn get_system_idle_time() -> Result<u64, String> {
@@ -193,6 +194,7 @@ fn main() {
     }
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec!["--autostart"])))
         .invoke_handler(tauri::generate_handler![get_system_idle_time])
         .system_tray(system_tray)
         .on_window_event(|event| {
@@ -234,6 +236,16 @@ fn main() {
             _ => {}
         })
         .setup(|app| {
+            // Enable autostart on first run only
+            if let Some(data_dir) = app.path_resolver().app_data_dir() {
+                let marker = data_dir.join(".autostart_configured");
+                if !marker.exists() {
+                    let _ = app.autolaunch().enable();
+                    let _ = std::fs::create_dir_all(&data_dir);
+                    let _ = std::fs::write(&marker, "1");
+                }
+            }
+
             let window = app.get_window("main").unwrap();
             #[cfg(target_os = "macos")]
             apply_macos_window_radius(&window, 0.0);

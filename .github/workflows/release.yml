@@ -35,6 +35,14 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Create production env
+        shell: bash
+        run: |
+          cat <<EOF > apps/desktop/.env.production
+          VITE_TODOCO_API_BASE=${{ secrets.VITE_TODOCO_API_BASE }}
+          VITE_TODOCO_TOKEN=${{ secrets.VITE_TODOCO_TOKEN }}
+          EOF
+
       - name: Get version
         id: version
         shell: bash

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/tauri";
 import { getLoggedInUser, setLoggedInUser } from "../lib/config.js";
 import { updateProfile } from "../lib/api.js";
 
@@ -47,6 +48,7 @@ export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorks
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [autoStartEnabled, setAutoStartEnabled] = useState(false);
   const fileInputRef = useRef(null);
   const nameInputRef = useRef(null);
 
@@ -57,6 +59,7 @@ export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorks
       setFullName(loggedInUser?.full_name || "");
       setAvatarBase64(loggedInUser?.avatar_base64 || "");
       setEditingName(false);
+      invoke("plugin:autostart|is_enabled").then(setAutoStartEnabled).catch(() => {});
     }
   }, [isOpen]);
 
@@ -314,6 +317,29 @@ export function WorkspaceSwitcher({ isOpen, onClose, currentWorkspace, userWorks
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Auto Start */}
+          <div className="settings-group-ios">
+            <div className="settings-row-ios settings-row-toggle-ios">
+              <span className="settings-label-ios">Start on Login</span>
+              <label className="settings-toggle-ios">
+                <input
+                  type="checkbox"
+                  checked={autoStartEnabled}
+                  onChange={async (e) => {
+                    const enabled = e.target.checked;
+                    try {
+                      await invoke(enabled ? "plugin:autostart|enable" : "plugin:autostart|disable");
+                      setAutoStartEnabled(enabled);
+                    } catch (err) {
+                      console.error("Autostart toggle failed:", err);
+                    }
+                  }}
+                />
+                <span className="settings-toggle-slider-ios" />
+              </label>
+            </div>
           </div>
 
           {/* Workspaces Group */}
