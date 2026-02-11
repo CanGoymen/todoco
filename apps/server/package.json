@@ -1,6 +1,6 @@
 {
   "name": "@todoco/server",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
@@ -9,7 +9,7 @@
   "dependencies": {
     "@fastify/cors": "^10.0.0",
     "@fastify/websocket": "^11.0.0",
-    "@todoco/shared": "1.0.2",
+    "@todoco/shared": "1.0.3",
     "fastify": "^5.0.0",
     "mongodb": "^6.20.0"
   }

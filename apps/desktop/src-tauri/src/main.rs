@@ -186,9 +186,11 @@ fn main() {
         .add_native_item(tauri::SystemTrayMenuItem::Separator)
         .add_item(quit);
 
-    let system_tray = SystemTray::new()
-        .with_menu(tray_menu)
-        .with_menu_on_left_click(false);
+    let mut system_tray = SystemTray::new().with_menu(tray_menu);
+    #[cfg(target_os = "macos")]
+    {
+        system_tray = system_tray.with_menu_on_left_click(false);
+    }
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![get_system_idle_time])
