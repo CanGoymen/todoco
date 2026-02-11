@@ -98,28 +98,134 @@ export function renderAdminPage() {
         align-items: center;
       }
 
-      .users {
+      .item-bar {
         display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
         margin-bottom: 18px;
       }
 
-      .user-pill {
+      .item-bar-fixed {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+
+      .item-bar-scroll {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        min-width: 0;
+      }
+
+      .item-bar-scroll::-webkit-scrollbar { display: none; }
+
+      .bar-search {
+        width: 140px;
+        height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0 12px;
+        font-size: 13px;
+        outline: none;
+        flex-shrink: 0;
+      }
+
+      .bar-search:focus {
+        border-color: #9ca3af;
+      }
+
+      .bar-add-btn {
+        border: 1px dashed var(--line);
+        background: none;
+        border-radius: 999px;
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        font-size: 16px;
+        color: var(--muted);
+        transition: all 0.15s;
+      }
+
+      .bar-add-btn:hover {
+        border-color: #9ca3af;
+        color: var(--text);
+      }
+
+      .bar-add-btn.active {
+        border-color: var(--line);
+        color: var(--muted);
+      }
+
+      .avatar-btn {
+        position: relative;
+        border: 2px solid transparent;
+        background: none;
+        border-radius: 999px;
+        padding: 0;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: border-color 0.15s;
+      }
+
+      .avatar-btn:hover {
+        border-color: #9ca3af;
+      }
+
+      .avatar-btn.active {
+        border-color: #111827;
+      }
+
+      .avatar-btn .avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+      }
+
+      .bar-tooltip {
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #111827;
+        color: #fff;
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+        z-index: 10;
+      }
+
+      .avatar-btn:hover .bar-tooltip {
+        opacity: 1;
+      }
+
+      .more-pill {
         border: 1px solid var(--line);
         background: #fff;
         border-radius: 999px;
-        height: 42px;
-        padding: 0 12px 0 6px;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
+        height: 32px;
+        padding: 0 10px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
         cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.15s;
       }
 
-      .user-pill.active {
-        border-color: #6b7280;
-        background: #f3f4f6;
+      .more-pill:hover {
+        border-color: #9ca3af;
+        color: var(--text);
       }
 
       .avatar {
@@ -235,99 +341,30 @@ export function renderAdminPage() {
         color: var(--text);
       }
 
-      /* Workspace section */
-      #workspaces-section {
-        margin-top: 20px;
-      }
-
-      .workspace-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-      }
-
-      .workspace-header h2 {
-        margin: 0;
-        font-size: 18px;
-      }
-
-      .workspace-list {
-        display: grid;
-        gap: 12px;
-      }
-
-      .workspace-card {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 16px;
-        background: var(--panel);
+      .ws-pill {
         border: 1px solid var(--line);
-        border-radius: 10px;
-        transition: all 0.2s;
-      }
-
-      .workspace-card:hover {
-        border-color: #9ca3af;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      }
-
-      .workspace-info {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-
-      .workspace-name {
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--text);
-      }
-
-      .workspace-stats {
+        background: #fff;
+        border-radius: 999px;
+        height: 32px;
+        padding: 0 12px;
+        display: inline-flex;
+        align-items: center;
         font-size: 13px;
-        color: var(--muted);
-      }
-
-      .workspace-secret-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 4px;
-      }
-
-      .workspace-secret-label {
-        font-size: 12px;
-        color: var(--muted);
-      }
-
-      .workspace-secret {
-        font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-        font-size: 13px;
-        background: var(--bg);
-        padding: 2px 6px;
-        border-radius: 4px;
-        border: 1px solid var(--line);
+        font-weight: 500;
         color: var(--text);
-        letter-spacing: 0.05em;
-      }
-
-      .copy-secret-btn {
-        padding: 2px 6px;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 4px;
-        font-size: 14px;
         cursor: pointer;
-        transition: all 0.2s;
-        line-height: 1;
+        flex-shrink: 0;
+        transition: all 0.15s;
       }
 
-      .copy-secret-btn:hover {
-        background: var(--line);
-        transform: scale(1.1);
+      .ws-pill:hover {
+        border-color: #9ca3af;
+      }
+
+      .ws-pill.active {
+        background: #111827;
+        color: #fff;
+        border-color: #111827;
       }
 
       .delete-workspace-btn {
@@ -445,23 +482,7 @@ export function renderAdminPage() {
         min-height: 18px;
       }
 
-      /* Snapshots section */
-      .snapshot-workspace-select {
-        width: 100%;
-        height: 38px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 0 10px;
-        font-size: 14px;
-        outline: none;
-        background: #fff;
-        margin-bottom: 16px;
-      }
-
-      .snapshot-workspace-select:focus {
-        border-color: #9ca3af;
-      }
-
+      /* Snapshots */
       .snapshot-list {
         display: grid;
         gap: 8px;
@@ -593,11 +614,16 @@ export function renderAdminPage() {
         <div class="admin-tabs">
           <button class="admin-tab active" data-tab="users">Users</button>
           <button class="admin-tab" data-tab="workspaces">Workspaces</button>
-          <button class="admin-tab" data-tab="snapshots">Snapshots</button>
         </div>
 
         <div id="users-section">
-          <div id="usersBar" class="users"></div>
+          <div class="item-bar">
+            <div class="item-bar-fixed">
+              <input id="userSearch" type="text" class="bar-search" placeholder="Search user..." />
+              <button id="userAddBtn" type="button" class="bar-add-btn" title="New User">+</button>
+            </div>
+            <div id="usersScroll" class="item-bar-scroll"></div>
+          </div>
 
           <div class="panel-grid">
           <div>
@@ -638,13 +664,43 @@ export function renderAdminPage() {
         </div>
 
         <div id="workspaces-section" style="display: none;">
-          <div class="workspace-header">
-            <h2>Workspaces</h2>
-            <button id="create-workspace-btn" class="action-btn">+ Create Workspace</button>
+          <div class="item-bar">
+            <div class="item-bar-fixed">
+              <input id="workspaceSearch" type="text" class="bar-search" placeholder="Search workspace..." />
+              <button id="wsAddBtn" type="button" class="bar-add-btn" title="New Workspace">+</button>
+            </div>
+            <div id="workspacesScroll" class="item-bar-scroll"></div>
           </div>
 
-          <div id="workspace-list" class="workspace-list">
-            <!-- Populated dynamically via JavaScript -->
+          <div id="workspace-detail" style="display:none;">
+            <div class="field">
+              <label>Workspace ID</label>
+              <input id="wsIdDisplay" type="text" readonly style="background:#f9fafb;cursor:default;" />
+            </div>
+            <div class="field">
+              <label>Tasks</label>
+              <input id="wsTaskCount" type="text" readonly style="background:#f9fafb;cursor:default;" />
+            </div>
+            <div class="field">
+              <label>Secret</label>
+              <div class="row">
+                <input id="wsSecret" type="text" readonly style="background:#f9fafb;cursor:default;font-family:monospace;flex:1;" />
+                <button id="wsCopySecret" class="btn ghost" type="button" style="height:38px;white-space:nowrap;">Copy</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button id="wsDeleteBtn" class="delete-workspace-btn">Delete Workspace</button>
+            </div>
+            <p id="wsMessage" class="hidden"></p>
+
+            <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
+              <label style="font-size:12px;color:#4b5563;">Snapshots</label>
+              <div id="snapshot-list" class="snapshot-list" style="margin-top:8px;"></div>
+            </div>
+          </div>
+
+          <div id="workspace-empty" style="text-align:center;padding:30px;color:var(--muted);font-size:14px;">
+            Select a workspace or create a new one
           </div>
 
           <!-- Create workspace modal -->
@@ -663,18 +719,6 @@ export function renderAdminPage() {
               </div>
               <div id="create-error" class="error-message"></div>
             </div>
-          </div>
-        </div>
-
-        <div id="snapshots-section" style="display: none;">
-          <div class="workspace-header">
-            <h2>Snapshots</h2>
-          </div>
-          <select id="snapshot-workspace-select" class="snapshot-workspace-select">
-            <option value="">Select workspace...</option>
-          </select>
-          <div id="snapshot-list" class="snapshot-list">
-            <div class="snapshot-empty">Select a workspace to view snapshots</div>
           </div>
         </div>
       </section>
@@ -801,41 +845,59 @@ export function renderAdminPage() {
         });
       }
 
-      function renderUsersBar() {
-        usersBar.innerHTML = "";
+      let usersExpanded = false;
+      const USERS_MAX = 12;
 
-        users.forEach((user) => {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "user-pill" + (selectedUserId === user.id ? " active" : "");
+      function renderUsersBar(filter = "") {
+        const scroll = document.getElementById("usersScroll");
+        scroll.innerHTML = "";
 
-          const avatar = document.createElement("span");
-          avatar.className = "avatar";
-          renderAvatar(avatar, user);
+        const addBtn = document.getElementById("userAddBtn");
+        addBtn.className = "bar-add-btn" + (!selectedUserId ? " active" : "");
 
-          const label = document.createElement("span");
-          label.textContent = user.full_name;
+        const q = filter.toLowerCase();
+        const filtered = q
+          ? users.filter(u => (u.full_name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q) || (u.username || "").toLowerCase().includes(q))
+          : users;
 
-          button.appendChild(avatar);
-          button.appendChild(label);
-          button.addEventListener("click", () => {
+        const limit = (usersExpanded || q) ? filtered.length : USERS_MAX;
+        const visible = filtered.slice(0, limit);
+        const remaining = filtered.length - visible.length;
+
+        visible.forEach((user) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "avatar-btn" + (selectedUserId === user.id ? " active" : "");
+
+          const av = document.createElement("span");
+          av.className = "avatar";
+          renderAvatar(av, user);
+
+          const tip = document.createElement("span");
+          tip.className = "bar-tooltip";
+          tip.textContent = (user.full_name || user.username) + (user.email ? " · " + user.email : "");
+
+          btn.appendChild(av);
+          btn.appendChild(tip);
+          btn.addEventListener("click", () => {
             applyForm(user);
-            renderUsersBar();
+            renderUsersBar(document.getElementById("userSearch").value);
             setSaveMessage("");
           });
-          usersBar.appendChild(button);
+          scroll.appendChild(btn);
         });
 
-        const addButton = document.createElement("button");
-        addButton.type = "button";
-        addButton.className = "user-pill" + (!selectedUserId ? " active" : "");
-        addButton.innerHTML = '<span class="avatar">+</span><span>New User</span>';
-        addButton.addEventListener("click", () => {
-          applyForm(null);
-          renderUsersBar();
-          setSaveMessage("");
-        });
-        usersBar.appendChild(addButton);
+        if (remaining > 0) {
+          const more = document.createElement("button");
+          more.type = "button";
+          more.className = "more-pill";
+          more.textContent = "+" + remaining;
+          more.addEventListener("click", () => {
+            usersExpanded = true;
+            renderUsersBar(document.getElementById("userSearch").value);
+          });
+          scroll.appendChild(more);
+        }
       }
 
       async function api(path, options = {}) {
@@ -885,7 +947,8 @@ export function renderAdminPage() {
           applyForm(null);
         }
 
-        renderUsersBar();
+        const searchEl = document.getElementById("userSearch");
+        renderUsersBar(searchEl ? searchEl.value : "");
       }
 
       async function login() {
@@ -963,6 +1026,17 @@ export function renderAdminPage() {
 
       saveBtn.addEventListener("click", saveUser);
 
+      document.getElementById("userSearch").addEventListener("input", (e) => {
+        usersExpanded = false;
+        renderUsersBar(e.target.value);
+      });
+
+      document.getElementById("userAddBtn").addEventListener("click", () => {
+        applyForm(null);
+        renderUsersBar(document.getElementById("userSearch").value);
+        setSaveMessage("");
+      });
+
       document.getElementById("avatarWrap").addEventListener("click", () => {
         avatarInput.click();
       });
@@ -1004,66 +1078,93 @@ export function renderAdminPage() {
       });
 
       // Workspace management
+      let allWorkspacesData = [];
+      let selectedWsId = null;
+
+      function showWsDetail(ws) {
+        selectedWsId = ws ? ws.id : null;
+        const detail = document.getElementById("workspace-detail");
+        const empty = document.getElementById("workspace-empty");
+
+        if (!ws) {
+          detail.style.display = "none";
+          empty.style.display = "block";
+          return;
+        }
+
+        detail.style.display = "block";
+        empty.style.display = "none";
+        document.getElementById("wsIdDisplay").value = ws.id;
+        document.getElementById("wsTaskCount").value = ws.taskCount + " tasks";
+        document.getElementById("wsSecret").value = ws.secret || "N/A";
+        loadSnapshots(ws.id);
+      }
+
+      let wsExpanded = false;
+      const WS_MAX = 10;
+
+      function renderWorkspacesBar(filter = "") {
+        const scroll = document.getElementById("workspacesScroll");
+        scroll.innerHTML = "";
+
+        const addBtn = document.getElementById("wsAddBtn");
+        addBtn.className = "bar-add-btn" + (!selectedWsId ? " active" : "");
+
+        const q = filter.toLowerCase();
+        const filtered = q
+          ? allWorkspacesData.filter(ws => ws.id.toLowerCase().includes(q))
+          : allWorkspacesData;
+
+        const limit = (wsExpanded || q) ? filtered.length : WS_MAX;
+        const visible = filtered.slice(0, limit);
+        const remaining = filtered.length - visible.length;
+
+        visible.forEach(ws => {
+          const pill = document.createElement("button");
+          pill.type = "button";
+          pill.className = "ws-pill" + (selectedWsId === ws.id ? " active" : "");
+          pill.textContent = ws.id;
+          pill.addEventListener("click", () => {
+            showWsDetail(ws);
+            renderWorkspacesBar(document.getElementById("workspaceSearch").value);
+          });
+          scroll.appendChild(pill);
+        });
+
+        if (remaining > 0) {
+          const more = document.createElement("button");
+          more.type = "button";
+          more.className = "more-pill";
+          more.textContent = "+" + remaining;
+          more.addEventListener("click", () => {
+            wsExpanded = true;
+            renderWorkspacesBar(document.getElementById("workspaceSearch").value);
+          });
+          scroll.appendChild(more);
+        }
+      }
+
       async function loadWorkspaces() {
         try {
           const response = await api("/admin-api/workspaces");
-          const workspaces = response.workspaces || [];
+          allWorkspacesData = response.workspaces || [];
 
-          const listEl = document.getElementById("workspace-list");
-          listEl.innerHTML = workspaces.map(ws => \`
-            <div class="workspace-card">
-              <div class="workspace-info">
-                <span class="workspace-name">\${ws.id}</span>
-                <span class="workspace-stats">\${ws.taskCount} tasks</span>
-                <div class="workspace-secret-container">
-                  <span class="workspace-secret-label">Secret:</span>
-                  <code class="workspace-secret">\${ws.secret || 'N/A'}</code>
-                  <button class="copy-secret-btn" data-secret="\${ws.secret}" title="Copy secret">📋</button>
-                </div>
-              </div>
-              <button class="delete-workspace-btn" data-workspace="\${ws.id}">Delete</button>
-            </div>
-          \`).join("");
+          const selected = allWorkspacesData.find(ws => ws.id === selectedWsId);
+          showWsDetail(selected || null);
 
-          // Attach delete handlers
-          listEl.querySelectorAll(".delete-workspace-btn").forEach(btn => {
-            btn.addEventListener("click", () => deleteWorkspace(btn.dataset.workspace));
-          });
-
-          // Attach copy secret handlers
-          listEl.querySelectorAll(".copy-secret-btn").forEach(btn => {
-            btn.addEventListener("click", (e) => {
-              e.stopPropagation();
-              const secret = btn.dataset.secret;
-              navigator.clipboard.writeText(secret).then(() => {
-                const originalText = btn.textContent;
-                btn.textContent = "✓";
-                setTimeout(() => {
-                  btn.textContent = originalText;
-                }, 1500);
-              }).catch(err => {
-                console.error("Failed to copy:", err);
-                alert("Failed to copy secret");
-              });
-            });
-          });
+          const searchEl = document.getElementById("workspaceSearch");
+          renderWorkspacesBar(searchEl ? searchEl.value : "");
         } catch (error) {
           console.error("Failed to load workspaces:", error);
-          alert("Failed to load workspaces");
         }
       }
 
       async function deleteWorkspace(workspaceId) {
-        if (!confirm(\`Are you sure you want to delete workspace "\${workspaceId}"? This will permanently delete all tasks in this workspace.\`)) {
-          return;
-        }
-
+        if (!confirm(\`Delete workspace "\${workspaceId}" and all its tasks permanently?\`)) return;
         try {
-          await api(\`/admin-api/workspaces/\${workspaceId}\`, {
-            method: "DELETE"
-          });
-
-          loadWorkspaces(); // Refresh list
+          await api(\`/admin-api/workspaces/\${workspaceId}\`, { method: "DELETE" });
+          selectedWsId = null;
+          loadWorkspaces();
         } catch (error) {
           console.error("Failed to delete workspace:", error);
           alert("Failed to delete workspace");
@@ -1082,25 +1183,39 @@ export function renderAdminPage() {
           // Show/hide sections
           document.getElementById("users-section").style.display = "none";
           document.getElementById("workspaces-section").style.display = "none";
-          document.getElementById("snapshots-section").style.display = "none";
 
           if (targetTab === "users") {
             document.getElementById("users-section").style.display = "block";
           } else if (targetTab === "workspaces") {
             document.getElementById("workspaces-section").style.display = "block";
             loadWorkspaces();
-          } else if (targetTab === "snapshots") {
-            document.getElementById("snapshots-section").style.display = "block";
-            loadSnapshotWorkspaces();
           }
         });
       });
 
-      // Create workspace modal
-      document.getElementById("create-workspace-btn").addEventListener("click", () => {
+      // Workspace detail listeners
+      document.getElementById("workspaceSearch").addEventListener("input", (e) => {
+        wsExpanded = false;
+        renderWorkspacesBar(e.target.value);
+      });
+
+      document.getElementById("wsAddBtn").addEventListener("click", () => {
         document.getElementById("create-workspace-modal").style.display = "flex";
         document.getElementById("new-workspace-id").value = "";
         document.getElementById("create-error").textContent = "";
+      });
+
+      document.getElementById("wsCopySecret").addEventListener("click", () => {
+        const secret = document.getElementById("wsSecret").value;
+        navigator.clipboard.writeText(secret).then(() => {
+          const btn = document.getElementById("wsCopySecret");
+          btn.textContent = "Copied!";
+          setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+        });
+      });
+
+      document.getElementById("wsDeleteBtn").addEventListener("click", () => {
+        if (selectedWsId) deleteWorkspace(selectedWsId);
       });
 
       document.getElementById("cancel-create-btn").addEventListener("click", () => {
@@ -1123,78 +1238,82 @@ export function renderAdminPage() {
           });
 
           document.getElementById("create-workspace-modal").style.display = "none";
-          loadWorkspaces(); // Refresh list
+          selectedWsId = workspaceId;
+          loadWorkspaces();
         } catch (error) {
           errorEl.textContent = error.message || "Failed to create workspace";
         }
       });
 
       // Snapshots
-      async function loadSnapshotWorkspaces() {
-        try {
-          const response = await api("/admin-api/workspaces");
-          const workspaces = response.workspaces || [];
-          const select = document.getElementById("snapshot-workspace-select");
-          const current = select.value;
-          select.innerHTML = '<option value="">Select workspace...</option>' +
-            workspaces.map(ws => \`<option value="\${ws.id}">\${ws.id} (\${ws.taskCount} tasks)</option>\`).join("");
-          if (current) {
-            select.value = current;
-          }
-        } catch (error) {
-          console.error("Failed to load workspaces for snapshots:", error);
+      let snapshotsExpanded = false;
+      let cachedSnapshots = [];
+      const SNAPSHOTS_MAX = 20;
+
+      function renderSnapshots(workspaceId, versions) {
+        const listEl = document.getElementById("snapshot-list");
+
+        if (versions.length === 0) {
+          listEl.innerHTML = '<div class="snapshot-empty">No snapshots</div>';
+          return;
         }
+
+        const limit = snapshotsExpanded ? versions.length : SNAPSHOTS_MAX;
+        const visible = versions.slice(0, limit);
+        const remaining = versions.length - visible.length;
+
+        listEl.innerHTML = \`<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+            <button id="delete-all-snapshots-btn" class="delete-workspace-btn" data-workspace="\${workspaceId}">Delete All (\${versions.length})</button>
+          </div>\` + visible.map(v => {
+          const date = new Date(v.created_at);
+          const timeStr = date.toLocaleString();
+          const taskCount = typeof v.tasks === "number" ? v.tasks : "?";
+          return \`
+            <div class="snapshot-card">
+              <div class="snapshot-info">
+                <span class="snapshot-version">v\${v.version}</span>
+                <span class="snapshot-meta">\${timeStr} &middot; \${v.actor || "unknown"} &middot; \${taskCount} tasks</span>
+              </div>
+              <div class="row">
+                <button class="restore-btn" data-version="\${v.version}" data-workspace="\${workspaceId}">Restore</button>
+                <button class="delete-workspace-btn" data-version="\${v.version}" data-workspace="\${workspaceId}" style="font-size:12px;padding:4px 10px;">Delete</button>
+              </div>
+            </div>
+          \`;
+        }).join("") + (remaining > 0 ? \`<button id="snapshots-more-btn" class="more-pill" style="width:100%;margin-top:4px;">\${remaining} more</button>\` : "");
+
+        listEl.querySelectorAll(".restore-btn").forEach(btn => {
+          btn.addEventListener("click", () => restoreSnapshot(btn.dataset.workspace, Number(btn.dataset.version), btn));
+        });
+
+        listEl.querySelectorAll(".delete-workspace-btn[data-version]").forEach(btn => {
+          btn.addEventListener("click", () => deleteSnapshot(btn.dataset.workspace, Number(btn.dataset.version)));
+        });
+
+        document.getElementById("delete-all-snapshots-btn")?.addEventListener("click", (e) => {
+          deleteAllSnapshots(e.target.dataset.workspace);
+        });
+
+        document.getElementById("snapshots-more-btn")?.addEventListener("click", () => {
+          snapshotsExpanded = true;
+          renderSnapshots(workspaceId, cachedSnapshots);
+        });
       }
 
       async function loadSnapshots(workspaceId) {
         const listEl = document.getElementById("snapshot-list");
         if (!workspaceId) {
-          listEl.innerHTML = '<div class="snapshot-empty">Select a workspace to view snapshots</div>';
+          listEl.innerHTML = '<div class="snapshot-empty">No snapshots</div>';
           return;
         }
 
         listEl.innerHTML = '<div class="snapshot-empty">Loading...</div>';
+        snapshotsExpanded = false;
 
         try {
           const response = await api(\`/admin-api/workspaces/\${workspaceId}/versions\`);
-          const versions = response.versions || [];
-
-          if (versions.length === 0) {
-            listEl.innerHTML = '<div class="snapshot-empty">No snapshots found</div>';
-            return;
-          }
-
-          listEl.innerHTML = \`<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-              <button id="delete-all-snapshots-btn" class="delete-workspace-btn" data-workspace="\${workspaceId}">Delete All (\${versions.length})</button>
-            </div>\` + versions.map(v => {
-            const date = new Date(v.created_at);
-            const timeStr = date.toLocaleString();
-            const taskCount = typeof v.tasks === "number" ? v.tasks : "?";
-            return \`
-              <div class="snapshot-card">
-                <div class="snapshot-info">
-                  <span class="snapshot-version">v\${v.version}</span>
-                  <span class="snapshot-meta">\${timeStr} &middot; \${v.actor || "unknown"} &middot; \${taskCount} tasks</span>
-                </div>
-                <div class="row">
-                  <button class="restore-btn" data-version="\${v.version}" data-workspace="\${workspaceId}">Restore</button>
-                  <button class="delete-workspace-btn" data-version="\${v.version}" data-workspace="\${workspaceId}" style="font-size:12px;padding:4px 10px;">Delete</button>
-                </div>
-              </div>
-            \`;
-          }).join("");
-
-          listEl.querySelectorAll(".restore-btn").forEach(btn => {
-            btn.addEventListener("click", () => restoreSnapshot(btn.dataset.workspace, Number(btn.dataset.version), btn));
-          });
-
-          listEl.querySelectorAll(".delete-workspace-btn[data-version]").forEach(btn => {
-            btn.addEventListener("click", () => deleteSnapshot(btn.dataset.workspace, Number(btn.dataset.version)));
-          });
-
-          document.getElementById("delete-all-snapshots-btn")?.addEventListener("click", (e) => {
-            deleteAllSnapshots(e.target.dataset.workspace);
-          });
+          cachedSnapshots = response.versions || [];
+          renderSnapshots(workspaceId, cachedSnapshots);
         } catch (error) {
           console.error("Failed to load snapshots:", error);
           listEl.innerHTML = '<div class="snapshot-empty">Failed to load snapshots</div>';
@@ -1246,10 +1365,6 @@ export function renderAdminPage() {
           alert("Failed to delete snapshots");
         }
       }
-
-      document.getElementById("snapshot-workspace-select").addEventListener("change", (e) => {
-        loadSnapshots(e.target.value);
-      });
 
       (async () => {
         if (!token) {
