@@ -395,7 +395,7 @@ export function TaskList({
                       onClick={() => pickAssignee(task, assignee)}
                     >
                       <span className={`task-mini-avatar ${assignee.id === "unassigned" ? "unassigned" : ""}`}>
-                        {assignee.id === "unassigned" ? <PersonIcon /> : initials(assignee.name)}
+                        {assignee.id === "unassigned" ? <PersonIcon /> : assignee.avatar_base64 ? <img src={assignee.avatar_base64} alt="" className="assignee-avatar-img" /> : initials(assignee.name)}
                       </span>
                       <span>{assignee.name}</span>
                     </button>

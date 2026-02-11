@@ -32,7 +32,7 @@ function readPriority(task, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function assigneesFromTasks(tasks, loggedInUser, userDirectory = {}) {
+function assigneesFromTasks(tasks, loggedInUser, userDirectory = {}, workspaceMembers = []) {
   const base = [UNASSIGNED];
   if (loggedInUser) {
     const currentUserProfile = userDirectory[loggedInUser.username];
@@ -43,6 +43,17 @@ function assigneesFromTasks(tasks, loggedInUser, userDirectory = {}) {
     });
   }
   const map = new Map(base.map((item) => [item.id, item]));
+  // Add all workspace members
+  workspaceMembers.forEach((member) => {
+    if (!map.has(member.username)) {
+      map.set(member.username, {
+        id: member.username,
+        name: member.full_name || member.username,
+        avatar_base64: member.avatar_base64 || ""
+      });
+    }
+  });
+  // Add users from tasks (may include non-members)
   tasks.forEach((task) => {
     const profile = userDirectory[task.assignee_id];
     if (!map.has(task.assignee_id)) {
@@ -53,8 +64,7 @@ function assigneesFromTasks(tasks, loggedInUser, userDirectory = {}) {
       });
       return;
     }
-
-    if (profile?.avatar_base64) {
+    if (profile?.avatar_base64 && !map.get(task.assignee_id).avatar_base64) {
       map.set(task.assignee_id, {
         ...map.get(task.assignee_id),
         avatar_base64: profile.avatar_base64
@@ -706,13 +716,27 @@ export function App() {
     };
   }, [isIdle]);
 
-  const addAssignees = useMemo(() => assigneesFromTasks(tasks, user, userDirectory), [tasks, user, userDirectory]);
+  const addAssignees = useMemo(() => assigneesFromTasks(tasks, user, userDirectory, workspaceMembers), [tasks, user, userDirectory, workspaceMembers]);
 
   useEffect(() => {
     if (!addAssignees.some((assignee) => assignee.id === quickAssigneeId)) {
       setQuickAssigneeId(UNASSIGNED.id);
     }
   }, [addAssignees, quickAssigneeId]);
+
+  useEffect(() => {
+    if (!quickAddOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") {
+        setQuickAddOpen(false);
+        setQuickText("");
+        setQuickAssigneeId(user?.username || UNASSIGNED.id);
+        setQuickAssigneeMenuOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [quickAddOpen, user]);
 
   const selectedQuickAssignee = useMemo(
     () => addAssignees.find((item) => item.id === quickAssigneeId) || UNASSIGNED,
@@ -1124,7 +1148,7 @@ export function App() {
                   onClick={() => setQuickAssigneeMenuOpen((current) => !current)}
                 >
                   <span className={`quick-add-avatar ${quickAssigneeId === UNASSIGNED.id ? "unassigned" : ""}`}>
-                    {quickAssigneeId === UNASSIGNED.id ? <PersonIcon /> : initials(selectedQuickAssignee.name)}
+                    {quickAssigneeId === UNASSIGNED.id ? <PersonIcon /> : selectedQuickAssignee.avatar_base64 ? <img src={selectedQuickAssignee.avatar_base64} alt="" className="assignee-avatar-img" /> : initials(selectedQuickAssignee.name)}
                   </span>
                 </button>
                 {quickAssigneeMenuOpen ? (
@@ -1140,7 +1164,7 @@ export function App() {
                         }}
                       >
                         <span className={`quick-add-avatar ${assignee.id === UNASSIGNED.id ? "unassigned" : ""}`}>
-                          {assignee.id === UNASSIGNED.id ? <PersonIcon /> : initials(assignee.name)}
+                          {assignee.id === UNASSIGNED.id ? <PersonIcon /> : assignee.avatar_base64 ? <img src={assignee.avatar_base64} alt="" className="assignee-avatar-img" /> : initials(assignee.name)}
                         </span>
                         <span>{assignee.name}</span>
                       </button>
@@ -1153,7 +1177,7 @@ export function App() {
                 type="text"
                 value={quickText}
                 onChange={(event) => setQuickText(event.target.value)}
-                placeholder="Task aciklamasi yaz..."
+                placeholder="Write a task description..."
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -1203,7 +1227,9 @@ export function App() {
             onClick={() =>
               setQuickAddOpen((current) => {
                 const next = !current;
-                if (!next) {
+                if (next) {
+                  setQuickAssigneeId(activeAssignee !== "all" ? activeAssignee : (user?.username || UNASSIGNED.id));
+                } else {
                   setQuickText("");
                   setQuickAssigneeId(user?.username || UNASSIGNED.id);
                   setQuickAssigneeMenuOpen(false);
