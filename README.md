@@ -5,7 +5,8 @@
 </h1>
 
 <p align="center">
-  <strong>A collaborative, tray-first realtime markdown todo app for teams</strong><br>
+  <strong>Agile is evolving into AIGILE</strong><br>
+  <sub>Realtime task collaboration for modern teams</sub><br>
   <sub>Built with Tauri + React + Fastify + WebSocket + MongoDB</sub>
 </p>
 
@@ -33,15 +34,17 @@
 
 ## ⚡ How to Use (macOS)
 
-Once we publish the first release, the onboarding flow will be:
+Get the latest version from GitHub Releases:
+
+- [Download Latest Release (.dmg)](https://github.com/CanGoymen/todoco/releases/latest)
+
+Onboarding flow:
 
 1. Open the repository `Releases` page and download the latest macOS `.dmg`.
 2. Install TodoCo by dragging the app into `Applications`.
 3. Launch TodoCo and create your account (`Register`).
 4. Create a new workspace for your team.
 5. Invite your teammates and start collaborating in realtime from the tray app.
-
-Note: Releases are not published yet. The first `.dmg` will be uploaded to GitHub Releases soon.
 
 ## 📸 Screenshots
 
