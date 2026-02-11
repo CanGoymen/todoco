@@ -830,3 +830,35 @@ export async function joinWorkspace(userEmail, workspaceId, secret) {
 
   return sanitizeUser(await users.findOne({ _id: user._id }));
 }
+
+export async function getWorkspaceVersions(workspaceId, limit = 50) {
+  const { versions } = mustInit();
+  return versions.aggregate([
+    { $match: { workspace_id: workspaceId } },
+    { $sort: { version: -1 } },
+    { $limit: limit },
+    { $project: { _id: 0, version: 1, actor: 1, created_at: 1, tasks: { $size: { $ifNull: ["$tasks", []] } } } }
+  ]).toArray();
+}
+
+export async function restoreWorkspaceVersion(workspaceId, version) {
+  const { versions } = mustInit();
+  const snapshot = await versions.findOne({ workspace_id: workspaceId, version });
+  if (!snapshot || !snapshot.tasks) {
+    throw new Error("Version not found");
+  }
+  return writeWorkspaceState(workspaceId, snapshot.tasks, "admin_restore");
+}
+
+export async function deleteWorkspaceVersion(workspaceId, version) {
+  const { versions } = mustInit();
+  const result = await versions.deleteOne({ workspace_id: workspaceId, version });
+  if (result.deletedCount === 0) throw new Error("Version not found");
+  return { ok: true };
+}
+
+export async function deleteAllWorkspaceVersions(workspaceId) {
+  const { versions } = mustInit();
+  const result = await versions.deleteMany({ workspace_id: workspaceId });
+  return { ok: true, deleted: result.deletedCount };
+}
