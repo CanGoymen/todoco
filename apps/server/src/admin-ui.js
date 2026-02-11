@@ -445,6 +445,88 @@ export function renderAdminPage() {
         min-height: 18px;
       }
 
+      /* Snapshots section */
+      .snapshot-workspace-select {
+        width: 100%;
+        height: 38px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 0 10px;
+        font-size: 14px;
+        outline: none;
+        background: #fff;
+        margin-bottom: 16px;
+      }
+
+      .snapshot-workspace-select:focus {
+        border-color: #9ca3af;
+      }
+
+      .snapshot-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .snapshot-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        transition: all 0.15s;
+      }
+
+      .snapshot-card:hover {
+        border-color: #9ca3af;
+      }
+
+      .snapshot-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .snapshot-version {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .snapshot-meta {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .restore-btn {
+        padding: 6px 14px;
+        background: #fff;
+        color: #111827;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .restore-btn:hover {
+        background: #111827;
+        color: #fff;
+      }
+
+      .restore-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .snapshot-empty {
+        text-align: center;
+        padding: 30px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
       /* Workspace assignments */
       .workspace-assignments {
         display: grid;
@@ -511,6 +593,7 @@ export function renderAdminPage() {
         <div class="admin-tabs">
           <button class="admin-tab active" data-tab="users">Users</button>
           <button class="admin-tab" data-tab="workspaces">Workspaces</button>
+          <button class="admin-tab" data-tab="snapshots">Snapshots</button>
         </div>
 
         <div id="users-section">
@@ -580,6 +663,18 @@ export function renderAdminPage() {
               </div>
               <div id="create-error" class="error-message"></div>
             </div>
+          </div>
+        </div>
+
+        <div id="snapshots-section" style="display: none;">
+          <div class="workspace-header">
+            <h2>Snapshots</h2>
+          </div>
+          <select id="snapshot-workspace-select" class="snapshot-workspace-select">
+            <option value="">Select workspace...</option>
+          </select>
+          <div id="snapshot-list" class="snapshot-list">
+            <div class="snapshot-empty">Select a workspace to view snapshots</div>
           </div>
         </div>
       </section>
@@ -985,13 +1080,18 @@ export function renderAdminPage() {
           tab.classList.add("active");
 
           // Show/hide sections
+          document.getElementById("users-section").style.display = "none";
+          document.getElementById("workspaces-section").style.display = "none";
+          document.getElementById("snapshots-section").style.display = "none";
+
           if (targetTab === "users") {
             document.getElementById("users-section").style.display = "block";
-            document.getElementById("workspaces-section").style.display = "none";
           } else if (targetTab === "workspaces") {
-            document.getElementById("users-section").style.display = "none";
             document.getElementById("workspaces-section").style.display = "block";
-            loadWorkspaces(); // Load workspaces when tab is shown
+            loadWorkspaces();
+          } else if (targetTab === "snapshots") {
+            document.getElementById("snapshots-section").style.display = "block";
+            loadSnapshotWorkspaces();
           }
         });
       });
@@ -1027,6 +1127,128 @@ export function renderAdminPage() {
         } catch (error) {
           errorEl.textContent = error.message || "Failed to create workspace";
         }
+      });
+
+      // Snapshots
+      async function loadSnapshotWorkspaces() {
+        try {
+          const response = await api("/admin-api/workspaces");
+          const workspaces = response.workspaces || [];
+          const select = document.getElementById("snapshot-workspace-select");
+          const current = select.value;
+          select.innerHTML = '<option value="">Select workspace...</option>' +
+            workspaces.map(ws => \`<option value="\${ws.id}">\${ws.id} (\${ws.taskCount} tasks)</option>\`).join("");
+          if (current) {
+            select.value = current;
+          }
+        } catch (error) {
+          console.error("Failed to load workspaces for snapshots:", error);
+        }
+      }
+
+      async function loadSnapshots(workspaceId) {
+        const listEl = document.getElementById("snapshot-list");
+        if (!workspaceId) {
+          listEl.innerHTML = '<div class="snapshot-empty">Select a workspace to view snapshots</div>';
+          return;
+        }
+
+        listEl.innerHTML = '<div class="snapshot-empty">Loading...</div>';
+
+        try {
+          const response = await api(\`/admin-api/workspaces/\${workspaceId}/versions\`);
+          const versions = response.versions || [];
+
+          if (versions.length === 0) {
+            listEl.innerHTML = '<div class="snapshot-empty">No snapshots found</div>';
+            return;
+          }
+
+          listEl.innerHTML = \`<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+              <button id="delete-all-snapshots-btn" class="delete-workspace-btn" data-workspace="\${workspaceId}">Delete All (\${versions.length})</button>
+            </div>\` + versions.map(v => {
+            const date = new Date(v.created_at);
+            const timeStr = date.toLocaleString();
+            const taskCount = typeof v.tasks === "number" ? v.tasks : "?";
+            return \`
+              <div class="snapshot-card">
+                <div class="snapshot-info">
+                  <span class="snapshot-version">v\${v.version}</span>
+                  <span class="snapshot-meta">\${timeStr} &middot; \${v.actor || "unknown"} &middot; \${taskCount} tasks</span>
+                </div>
+                <div class="row">
+                  <button class="restore-btn" data-version="\${v.version}" data-workspace="\${workspaceId}">Restore</button>
+                  <button class="delete-workspace-btn" data-version="\${v.version}" data-workspace="\${workspaceId}" style="font-size:12px;padding:4px 10px;">Delete</button>
+                </div>
+              </div>
+            \`;
+          }).join("");
+
+          listEl.querySelectorAll(".restore-btn").forEach(btn => {
+            btn.addEventListener("click", () => restoreSnapshot(btn.dataset.workspace, Number(btn.dataset.version), btn));
+          });
+
+          listEl.querySelectorAll(".delete-workspace-btn[data-version]").forEach(btn => {
+            btn.addEventListener("click", () => deleteSnapshot(btn.dataset.workspace, Number(btn.dataset.version)));
+          });
+
+          document.getElementById("delete-all-snapshots-btn")?.addEventListener("click", (e) => {
+            deleteAllSnapshots(e.target.dataset.workspace);
+          });
+        } catch (error) {
+          console.error("Failed to load snapshots:", error);
+          listEl.innerHTML = '<div class="snapshot-empty">Failed to load snapshots</div>';
+        }
+      }
+
+      async function restoreSnapshot(workspaceId, version, btn) {
+        if (!confirm(\`Restore workspace "\${workspaceId}" to version \${version}? This will overwrite the current task list.\`)) {
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Restoring...";
+
+        try {
+          const result = await api(\`/admin-api/workspaces/\${workspaceId}/restore\`, {
+            method: "POST",
+            body: JSON.stringify({ version })
+          });
+          btn.textContent = "Restored!";
+          setTimeout(() => loadSnapshots(workspaceId), 1000);
+        } catch (error) {
+          console.error("Failed to restore snapshot:", error);
+          btn.textContent = "Failed";
+          btn.disabled = false;
+          setTimeout(() => { btn.textContent = "Restore"; }, 2000);
+        }
+      }
+
+      async function deleteSnapshot(workspaceId, version) {
+        if (!confirm(\`Delete snapshot v\${version}?\`)) return;
+        try {
+          await api(\`/admin-api/workspaces/\${workspaceId}/versions/\${version}\`, { method: "DELETE" });
+          loadSnapshots(workspaceId);
+        } catch (error) {
+          console.error("Failed to delete snapshot:", error);
+          alert("Failed to delete snapshot");
+        }
+      }
+
+      async function deleteAllSnapshots(workspaceId) {
+        if (!confirm(\`Delete ALL snapshots for "\${workspaceId}"? This cannot be undone.\`)) return;
+        try {
+          const result = await api(\`/admin-api/workspaces/\${workspaceId}/versions\`, { method: "DELETE" });
+          alert(\`Deleted \${result.deleted} snapshots.\`);
+          loadSnapshots(workspaceId);
+        } catch (error) {
+          console.error("Failed to delete all snapshots:", error);
+          alert("Failed to delete snapshots");
+        }
+      }
+
+      document.getElementById("snapshot-workspace-select").addEventListener("change", (e) => {
+        loadSnapshots(e.target.value);
       });
 
       (async () => {

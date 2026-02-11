@@ -9,6 +9,10 @@ import {
   createWorkspace,
   deleteWorkspace,
   getTasks,
+  getWorkspaceVersions,
+  restoreWorkspaceVersion,
+  deleteWorkspaceVersion,
+  deleteAllWorkspaceVersions,
   getUserByEmail,
   getWorkspaceStats,
   initStore,
@@ -557,6 +561,55 @@ app.delete("/admin-api/workspaces/:id", async (request, reply) => {
   } catch (error) {
     app.log.error("Error deleting workspace:", error);
     return reply.code(500).send({ error: "Failed to delete workspace" });
+  }
+});
+
+app.get("/admin-api/workspaces/:id/versions", async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const versions = await getWorkspaceVersions(id);
+    return { versions };
+  } catch (error) {
+    app.log.error("Error getting workspace versions:", error);
+    return reply.code(500).send({ error: "Failed to get versions" });
+  }
+});
+
+app.post("/admin-api/workspaces/:id/restore", async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const { version } = request.body || {};
+    if (typeof version !== "number") {
+      return reply.code(400).send({ error: "version is required" });
+    }
+    const tasks = await restoreWorkspaceVersion(id, version);
+    hub.broadcast(id, { type: "task_list_full", payload: { tasks } });
+    return { ok: true, taskCount: tasks.length };
+  } catch (error) {
+    app.log.error("Error restoring workspace version:", error);
+    return reply.code(500).send({ error: error.message || "Failed to restore" });
+  }
+});
+
+app.delete("/admin-api/workspaces/:id/versions/:version", async (request, reply) => {
+  try {
+    const { id, version } = request.params;
+    const result = await deleteWorkspaceVersion(id, Number(version));
+    return result;
+  } catch (error) {
+    app.log.error("Error deleting version:", error);
+    return reply.code(500).send({ error: error.message || "Failed to delete version" });
+  }
+});
+
+app.delete("/admin-api/workspaces/:id/versions", async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const result = await deleteAllWorkspaceVersions(id);
+    return result;
+  } catch (error) {
+    app.log.error("Error deleting all versions:", error);
+    return reply.code(500).send({ error: "Failed to delete versions" });
   }
 });
 

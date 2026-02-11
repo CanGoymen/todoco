@@ -36,13 +36,16 @@ export async function showNotification(title, body) {
   try {
     const { isPermissionGranted, requestPermission, sendNotification } = await import("@tauri-apps/api/notification");
 
-    let permission = await isPermissionGranted();
-    if (!permission) {
-      permission = await requestPermission();
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      const result = await requestPermission();
+      granted = result === "granted";
     }
 
-    if (permission) {
+    if (granted) {
       sendNotification({ title, body });
+    } else {
+      console.warn("Notification permission not granted");
     }
   } catch (error) {
     console.error("Failed to show notification:", error);
