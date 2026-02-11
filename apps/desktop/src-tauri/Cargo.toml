@@ -1,6 +1,6 @@
 [package]
 name = "todoco"
-version = "1.0.0"
+version = "1.0.4"
 description = "TodoCo tray app"
 authors = ["TodoCo Team"]
 license = "MIT"
