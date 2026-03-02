@@ -482,6 +482,14 @@ export function renderAdminPage() {
         min-height: 18px;
       }
 
+      /* Workspace settings */
+      .ws-setting-row { display:flex; align-items:center; padding: 8px 0; border-top: 1px solid var(--line); }
+      .ws-setting-label { display:flex; justify-content:space-between; align-items:center; width:100%; font-size:13px; color:#334155; }
+      input[type=checkbox]#ws-location-toggle { appearance:none; width:32px; height:18px; background:#cbd5e1; border-radius:999px; cursor:pointer; transition:background .2s; position:relative; flex-shrink:0; }
+      input[type=checkbox]#ws-location-toggle:checked { background:#22c55e; }
+      input[type=checkbox]#ws-location-toggle::after { content:""; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:#fff; transition:left .2s; }
+      input[type=checkbox]#ws-location-toggle:checked::after { left:16px; }
+
       /* Snapshots */
       .snapshot-list {
         display: grid;
@@ -687,6 +695,12 @@ export function renderAdminPage() {
                 <input id="wsSecret" type="text" readonly style="background:#f9fafb;cursor:default;font-family:monospace;flex:1;" />
                 <button id="wsCopySecret" class="btn ghost" type="button" style="height:38px;white-space:nowrap;">Copy</button>
               </div>
+            </div>
+            <div class="ws-setting-row">
+              <label class="ws-setting-label">
+                <span>📍 Location</span>
+                <input type="checkbox" id="ws-location-toggle" onchange="saveWsSettings()">
+              </label>
             </div>
             <div style="display:flex;gap:8px;margin-top:8px;">
               <button id="wsDeleteBtn" class="delete-workspace-btn">Delete Workspace</button>
@@ -1097,7 +1111,24 @@ export function renderAdminPage() {
         document.getElementById("wsIdDisplay").value = ws.id;
         document.getElementById("wsTaskCount").value = ws.taskCount + " tasks";
         document.getElementById("wsSecret").value = ws.secret || "N/A";
+        document.getElementById("ws-location-toggle").checked = ws.location_enabled ?? false;
         loadSnapshots(ws.id);
+      }
+
+      async function saveWsSettings() {
+        if (!selectedWsId) return;
+        const location_enabled = document.getElementById("ws-location-toggle").checked;
+        try {
+          await api(\`/admin-api/workspaces/\${selectedWsId}/settings\`, {
+            method: "PATCH",
+            body: JSON.stringify({ location_enabled })
+          });
+          // Update local data so toggle state is preserved on re-render
+          const ws = allWorkspacesData.find(w => w.id === selectedWsId);
+          if (ws) ws.location_enabled = location_enabled;
+        } catch (error) {
+          console.error("Failed to save workspace settings:", error);
+        }
       }
 
       let wsExpanded = false;

@@ -1,24 +1,34 @@
 [package]
 name = "todoco"
-version = "1.0.4"
+version = "1.1.0"
 description = "TodoCo tray app"
 authors = ["TodoCo Team"]
 license = "MIT"
 edition = "2021"
 
+[lib]
+name = "todoco_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
-tauri-build = { version = "1.5", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
 serde_json = "1.0"
-tauri = { version = "1.6", features = [ "macos-private-api", "api-all", "system-tray"] }
-tauri-plugin-autostart = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+tauri = { version = "2", features = ["macos-private-api"] }
+tauri-plugin-notification = "2"
+tauri-plugin-geolocation = "2"
+
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
+tauri-plugin-autostart = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-cocoa = "0.25"
+cocoa = "0.26"
 objc = "0.2"
-core-foundation = "0.9"
+core-foundation = "0.10"
 
 [features]
-default = ["custom-protocol"]
+default = ["custom-protocol", "desktop"]
 custom-protocol = ["tauri/custom-protocol"]
+desktop = ["tauri/macos-private-api", "tauri/tray-icon", "tauri/image-png"]
+mobile = []

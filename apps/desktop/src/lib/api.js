@@ -243,13 +243,27 @@ function websocketUrl() {
   url.searchParams.set("workspace", workspace);
   url.searchParams.set("token", token);
 
-  // User presence tracking için username ekle
+  // User presence tracking için username ve email ekle
   const user = JSON.parse(localStorage.getItem("todoco_user") || "null");
   if (user?.username) {
     url.searchParams.set("username", user.username);
   }
+  if (user?.email) {
+    url.searchParams.set("email", user.email);
+  }
 
   return url.toString();
+}
+
+export async function fetchWorkspaceSettings(workspaceId) {
+  const { apiBase, token } = getRuntimeConfig();
+  try {
+    const res = await fetch(`${apiBase}/workspace/${workspaceId}/settings?token=${token}`);
+    if (!res.ok) return { location_enabled: false };
+    return res.json();
+  } catch {
+    return { location_enabled: false };
+  }
 }
 
 export function connectRealtime(onMessage) {

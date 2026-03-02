@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createTask as buildTask } from "@todoco/shared/task";
 import { AvatarFilterBar } from "./components/AvatarFilterBar.jsx";
+import { StatusModal } from "./components/StatusModal.jsx";
 import { InviteFriendsScreen } from "./components/InviteFriendsScreen.jsx";
 import { LoginScreen } from "./components/LoginScreen.jsx";
 import { RegisterScreen } from "./components/RegisterScreen.jsx";
@@ -9,7 +10,7 @@ import { TaskList } from "./components/TaskList.jsx";
 import { WorkspaceJoinScreen } from "./components/WorkspaceJoinScreen.jsx";
 import { WorkspaceSelectionScreen } from "./components/WorkspaceSelectionScreen.jsx";
 import { WorkspaceSwitcher, LogoutIcon, SettingsIcon } from "./components/WorkspaceSwitcher.jsx";
-import { bulkUpdateTasks, checkWorkspaceExists, connectRealtime, createTask, createWorkspace, fetchTasks, getUserWorkspaces, getWorkspaceInfo, getWorkspaceMembers, joinWorkspace, login as apiLogin, register as apiRegister, toggleTask, updateTaskProgress } from "./lib/api.js";
+import { bulkUpdateTasks, checkWorkspaceExists, connectRealtime, createTask, createWorkspace, fetchTasks, fetchWorkspaceSettings, getUserWorkspaces, getWorkspaceInfo, getWorkspaceMembers, joinWorkspace, login as apiLogin, register as apiRegister, toggleTask, updateTaskProgress } from "./lib/api.js";
 import { readCachedTasks, writeCachedTasks } from "./lib/cache.js";
 import { clearLoggedInUser, getLoggedInUser, getRuntimeConfig, setLoggedInUser } from "./lib/config.js";
 import { getSystemIdleTime, isTauriRuntime, openEditorWindow, showNotification } from "./lib/tauri.js";
@@ -130,6 +131,14 @@ function SaveIcon() {
   );
 }
 
+function LocationPinIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M8 0a5 5 0 0 0-5 5c0 3.5 5 11 5 11s5-7.5 5-11a5 5 0 0 0-5-5zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+    </svg>
+  );
+}
+
 function tasksToMarkdown(tasks) {
   return tasks.map(task => {
     const checkbox = task.done ? "[x]" : "[ ]";
@@ -226,6 +235,23 @@ export function App() {
   const [quickText, setQuickText] = useState("");
   const [creating, setCreating] = useState(false);
   const [isIdle, setIsIdle] = useState(false);
+  const [idleUsers, setIdleUsers] = useState([]);
+  const [statusEmoji, setStatusEmoji] = useState("");
+  const [statusText, setStatusText] = useState("");
+  const [isDnd, setIsDnd] = useState(false);
+  const [dndUsers, setDndUsers] = useState([]);
+  const [userStatuses, setUserStatuses] = useState({});
+  const [userLocations, setUserLocations] = useState({});
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const statusDotWrapperRef = useRef(null);
+
+  // Refs for stale-closure-safe comparisons and idle detection
+  const presenceRef = useRef(0);
+  const isFirstPresenceUpdateRef = useRef(true);
+  const onlineUsersRef = useRef([]);
+  const wsRef = useRef(null);
+  const lastActivityRef = useRef(Date.now());
+  const isIdleRef = useRef(false);
 
   // Registration flow state
   const [authView, setAuthView] = useState("login"); // "login" | "register" | "workspace-join" | "invite-friends"
@@ -239,6 +265,9 @@ export function App() {
   const [workspaceMembers, setWorkspaceMembers] = useState([]);
   const [markdownEditMode, setMarkdownEditMode] = useState(false);
   const [markdownText, setMarkdownText] = useState("");
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  const [locationLabel, setLocationLabel] = useState("");
+  const [locationLoading, setLocationLoading] = useState(false);
 
   async function handleLogin(email, password) {
     const response = await apiLogin(email, password);
@@ -420,6 +449,125 @@ export function App() {
     }
   }
 
+  async function getIpLocation() {
+    // First try: ipapi.co (HTTPS, free)
+    try {
+      const res = await fetch("https://ipapi.co/json/");
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.error && (data.city || data.region)) {
+          console.log("[Location] ipapi.co:", data.city || data.region);
+          return data.city || data.region;
+        }
+      }
+    } catch { /* fall through */ }
+    // Second try: ipwho.is (HTTPS, free, no API key needed)
+    try {
+      const res = await fetch("https://ipwho.is/");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && (data.city || data.region)) {
+          console.log("[Location] ipwho.is:", data.city || data.region);
+          return data.city || data.region;
+        }
+      }
+    } catch { /* fall through */ }
+    console.log("[Location] IP geolocation failed");
+    return "";
+  }
+
+  async function loadLocationForWorkspace(workspaceId) {
+    if (!workspaceId) return;
+
+    const { location_enabled } = await fetchWorkspaceSettings(workspaceId);
+    console.log("[Location] workspace:", workspaceId, "location_enabled:", location_enabled);
+    setLocationEnabled(location_enabled);
+    if (!location_enabled) {
+      setLocationLabel("");
+      setLocationLoading(false);
+      return;
+    }
+
+    setLocationLabel(""); // clear stale value from previous workspace
+    setLocationLoading(true);
+
+    async function reverseGeocode(latitude, longitude) {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+        );
+        const data = await res.json();
+        return (
+          data.address?.suburb ||
+          data.address?.district ||
+          data.address?.city_district ||
+          data.address?.county ||
+          data.address?.city ||
+          ""
+        );
+      } catch {
+        return "";
+      }
+    }
+
+    async function resolveLabel() {
+      const ipPromise = getIpLocation();
+
+      // In Tauri: use native geolocation plugin (WiFi triangulation, accurate)
+      if (isTauriRuntime()) {
+        try {
+          const { checkPermissions, requestPermissions, getCurrentPosition } =
+            await import("@tauri-apps/plugin-geolocation");
+
+          let perms = await checkPermissions();
+          if (perms.location === "prompt" || perms.location === "prompt-with-rationale") {
+            perms = await requestPermissions(["location"]);
+          }
+
+          if (perms.location === "granted") {
+            const position = await getCurrentPosition({ enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 });
+            const { latitude, longitude } = position.coords;
+            console.log("[Location] Tauri GPS coords:", latitude, longitude);
+            const gpsLabel = await reverseGeocode(latitude, longitude);
+            console.log("[Location] GPS label:", gpsLabel);
+            return gpsLabel || await ipPromise;
+          }
+        } catch (e) {
+          console.log("[Location] Tauri geolocation error:", e);
+        }
+        return ipPromise;
+      }
+
+      // Browser fallback: navigator.geolocation + IP in parallel
+      if (navigator.geolocation) {
+        const gpsPromise = new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              const label = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+              console.log("[Location] Browser GPS label:", label);
+              resolve(label);
+            },
+            () => {
+              console.log("[Location] Browser geolocation denied/unavailable");
+              resolve("");
+            },
+            { timeout: 5000, maximumAge: 300000 }
+          );
+        });
+
+        const [gpsLabel, ipLabel] = await Promise.all([gpsPromise, ipPromise]);
+        return gpsLabel || ipLabel;
+      }
+
+      return ipPromise;
+    }
+
+    const label = await resolveLabel();
+    console.log("[Location] final label:", label);
+    setLocationLabel(label);
+    setLocationLoading(false);
+  }
+
   useEffect(() => {
     if (!user?.username) {
       return;
@@ -433,6 +581,15 @@ export function App() {
       }
     }));
   }, [user?.username, user?.full_name, user?.avatar_base64]);
+
+  useEffect(() => {
+    if (!user?.username || !currentWorkspace) {
+      setLocationEnabled(false);
+      setLocationLabel("");
+      return;
+    }
+    loadLocationForWorkspace(currentWorkspace);
+  }, [user?.username, currentWorkspace]);
 
   useEffect(() => {
     let ws;
@@ -515,24 +672,48 @@ export function App() {
 
       if (message.type === "user_presence_update") {
         const newCount = message.payload?.connected || 0;
-        const oldCount = presence;
         const onlineUsersList = message.payload?.online_users || [];
+        const idleUsersList = message.payload?.idle_users || [];
+        const dndUsersList = message.payload?.dnd_users || [];
+        const userStatusesMap = message.payload?.user_statuses || {};
+        const userLocationsMap = message.payload?.user_locations || {};
+        const currentUsername = user?.username;
 
         console.log("👥 Presence update:", {
           connected: newCount,
           online_users: onlineUsersList,
-          current_user: user?.username
+          idle_users: idleUsersList,
+          dnd_users: dndUsersList,
+          current_user: currentUsername
         });
 
-        // Presence değişikliğinde bildirim
-        if (newCount > oldCount) {
-          showNotification("User Joined", "👋 Someone joined the workspace!");
-        } else if (newCount < oldCount && newCount > 0) {
-          showNotification("User Left", "👋 Someone left the workspace");
+        // Skip first update after connect/reconnect to avoid false "joined" notifications
+        if (!isFirstPresenceUpdateRef.current) {
+          // Diff online_users (excluding self) for named join/leave notifications
+          const prevUsers = onlineUsersRef.current.filter((u) => u !== currentUsername);
+          const nextUsers = onlineUsersList.filter((u) => u !== currentUsername);
+          const joined = nextUsers.filter((u) => !prevUsers.includes(u));
+          const left = prevUsers.filter((u) => !nextUsers.includes(u));
+          joined.forEach((u) => showNotification("User Joined", `👋 ${u} joined the workspace!`));
+          left.forEach((u) => showNotification("User Left", `👋 ${u} left the workspace`));
         }
+        isFirstPresenceUpdateRef.current = false;
 
+        presenceRef.current = newCount;
+        onlineUsersRef.current = onlineUsersList;
         setPresence(newCount);
         setOnlineUsers(onlineUsersList);
+        setIdleUsers(idleUsersList);
+        setDndUsers(dndUsersList);
+        setUserStatuses(userStatusesMap);
+        setUserLocations(userLocationsMap);
+        // Sync own DND and status from server (e.g. after reconnect or other tab)
+        if (currentUsername) {
+          setIsDnd(dndUsersList.includes(currentUsername));
+          const myStatus = userStatusesMap[currentUsername] || {};
+          setStatusEmoji(myStatus.emoji || "");
+          setStatusText(myStatus.text || "");
+        }
       }
 
       if (message.type === "user:updated") {
@@ -580,6 +761,17 @@ export function App() {
           return updated;
         });
       }
+
+      if (message.type === "workspace_settings_update") {
+        const location_enabled = message.payload?.location_enabled ?? false;
+        setLocationEnabled(location_enabled);
+        if (location_enabled) {
+          loadLocationForWorkspace(getRuntimeConfig().workspace);
+        } else {
+          setLocationLabel("");
+          setLocationLoading(false);
+        }
+      }
     }
 
     function clearReconnectTimer() {
@@ -594,14 +786,29 @@ export function App() {
         return;
       }
 
+      // Reset stale-closure refs before each new connection (workspace switch, reconnect)
+      isFirstPresenceUpdateRef.current = true;
+      onlineUsersRef.current = [];
+      presenceRef.current = 0;
+
       ws = connectRealtime(handleRealtimeMessage);
+      wsRef.current = ws;
 
       onOpen = () => {
         setIsRealtimeConnected(true);
       };
       onClose = () => {
         setIsRealtimeConnected(false);
+        presenceRef.current = 0;
+        onlineUsersRef.current = [];
+        isFirstPresenceUpdateRef.current = true;
         setPresence(0);
+        setOnlineUsers([]);
+        setIdleUsers([]);
+        setDndUsers([]);
+        setUserStatuses({});
+        setUserLocations({});
+        setLocationLabel("");
         if (stopped) {
           return;
         }
@@ -623,6 +830,7 @@ export function App() {
 
     return () => {
       stopped = true;
+      wsRef.current = null;
       clearReconnectTimer();
       if (ws) {
         ws.removeEventListener("open", onOpen);
@@ -662,6 +870,7 @@ export function App() {
   }, []);
 
   // Idle detection: Tauri system idle veya browser activity tracking
+  // Bug 6 fix: lastActivityRef/isIdleRef prevent stale closure loop; effect runs once
   useEffect(() => {
     const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 dakika
     const CHECK_INTERVAL = 30 * 1000; // 30 saniye
@@ -669,29 +878,24 @@ export function App() {
     async function checkIdle() {
       let idleTime = 0;
 
-      // Tauri runtime ise sistem düzeyinde idle time al
       if (isTauriRuntime()) {
         idleTime = await getSystemIdleTime();
       } else {
-        // Browser için fallback: son aktiviteden beri geçen süre
-        const now = Date.now();
-        idleTime = now - lastActivity;
+        idleTime = Date.now() - lastActivityRef.current;
       }
 
       const shouldBeIdle = idleTime >= IDLE_TIMEOUT;
 
-      if (shouldBeIdle !== isIdle) {
+      if (shouldBeIdle !== isIdleRef.current) {
+        isIdleRef.current = shouldBeIdle;
         setIsIdle(shouldBeIdle);
       }
     }
 
-    let lastActivity = Date.now();
-
     function updateActivity() {
-      lastActivity = Date.now();
+      lastActivityRef.current = Date.now();
     }
 
-    // Activity event listeners (browser fallback için)
     if (!isTauriRuntime()) {
       document.addEventListener("mousemove", updateActivity);
       document.addEventListener("mousedown", updateActivity);
@@ -700,9 +904,8 @@ export function App() {
       document.addEventListener("scroll", updateActivity);
     }
 
-    // Check idle status periodically
     const intervalId = setInterval(checkIdle, CHECK_INTERVAL);
-    checkIdle(); // İlk kontrolü hemen yap
+    checkIdle();
 
     return () => {
       if (!isTauriRuntime()) {
@@ -714,7 +917,26 @@ export function App() {
       }
       clearInterval(intervalId);
     };
+  }, []);
+
+  // Bug 3: Send idle status to server when isIdle changes
+  useEffect(() => {
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "presence_idle_update", payload: { idle: isIdle } }));
+    }
   }, [isIdle]);
+
+  // Send location to server when it changes or connection is established
+  useEffect(() => {
+    if (locationLoading) return; // Don't send placeholder "..." state
+    const ws = wsRef.current;
+    if (!isRealtimeConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({
+      type: "user_location_update",
+      payload: { location: locationEnabled ? locationLabel : "" }
+    }));
+  }, [locationLabel, locationEnabled, isRealtimeConnected, locationLoading]);
 
   const addAssignees = useMemo(() => assigneesFromTasks(tasks, user, userDirectory, workspaceMembers), [tasks, user, userDirectory, workspaceMembers]);
 
@@ -1060,7 +1282,65 @@ export function App() {
     }
   }
 
-  const presenceLabel = isRealtimeConnected ? (presence > 0 ? `Online: ${presence}` : "Online") : "Offline";
+  // Close status panel when clicking outside the wrapper
+  useEffect(() => {
+    if (!statusModalOpen) return;
+    function handleClickOutside(e) {
+      if (statusDotWrapperRef.current && !statusDotWrapperRef.current.contains(e.target)) {
+        setStatusModalOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [statusModalOpen]);
+
+  function handleStatusSave({ emoji, text, presenceOverride }) {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    ws.send(JSON.stringify({ type: "user_status_update", payload: { emoji, text } }));
+    setStatusEmoji(emoji);
+    setStatusText(text);
+
+    if (presenceOverride === "dnd") {
+      ws.send(JSON.stringify({ type: "user_dnd_update", payload: { dnd: true } }));
+      ws.send(JSON.stringify({ type: "presence_idle_update", payload: { idle: false } }));
+      setIsDnd(true);
+      isIdleRef.current = false;
+      setIsIdle(false);
+    } else if (presenceOverride === "away") {
+      ws.send(JSON.stringify({ type: "user_dnd_update", payload: { dnd: false } }));
+      ws.send(JSON.stringify({ type: "presence_idle_update", payload: { idle: true } }));
+      setIsDnd(false);
+      isIdleRef.current = true;
+      setIsIdle(true);
+    } else {
+      ws.send(JSON.stringify({ type: "user_dnd_update", payload: { dnd: false } }));
+      ws.send(JSON.stringify({ type: "presence_idle_update", payload: { idle: false } }));
+      setIsDnd(false);
+      isIdleRef.current = false;
+      setIsIdle(false);
+      lastActivityRef.current = Date.now();
+    }
+  }
+
+  function handleStatusClear() {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    ws.send(JSON.stringify({ type: "user_status_update", payload: { emoji: "", text: "" } }));
+    ws.send(JSON.stringify({ type: "user_dnd_update", payload: { dnd: false } }));
+    ws.send(JSON.stringify({ type: "presence_idle_update", payload: { idle: false } }));
+    setStatusEmoji("");
+    setStatusText("");
+    setIsDnd(false);
+    isIdleRef.current = false;
+    setIsIdle(false);
+    lastActivityRef.current = Date.now();
+  }
+
+  const presenceClass = !isRealtimeConnected ? "offline" : isDnd ? "dnd" : isIdle ? "away" : "active";
+  const presenceLabel = presenceClass === "active" ? "Active" : presenceClass === "away" ? "Away" : presenceClass === "dnd" ? "DND" : "Offline";
 
   // Registration flow screens
   if (!user) {
@@ -1130,6 +1410,11 @@ export function App() {
             onChange={setActiveAssignee}
             loggedInUserId={user?.username}
             onlineUsers={onlineUsers}
+            idleUsers={idleUsers}
+            dndUsers={dndUsers}
+            userStatuses={userStatuses}
+            userLocations={userLocations}
+            isDnd={isDnd}
             isConnected={isRealtimeConnected}
             isIdle={isIdle}
           />
@@ -1240,9 +1525,34 @@ export function App() {
           >
             +
           </button>
-          <span className={`presence ${isRealtimeConnected ? "online" : "offline"}`}>{presenceLabel}</span>
+          {locationEnabled && (locationLabel || locationLoading) && (
+            <span className="location-label" title="Your location">
+              <LocationPinIcon />
+              {locationLoading ? "..." : locationLabel}
+            </span>
+          )}
         </div>
         <div className="footer-right">
+          <div className="status-dot-wrapper" ref={statusDotWrapperRef}>
+            <button
+              className={`status-dot-button ${presenceClass}`}
+              type="button"
+              title={`${presenceLabel}${statusText ? ` · ${statusEmoji ? statusEmoji + " " : ""}${statusText}` : ""}`}
+              aria-label="Set status"
+              onClick={() => setStatusModalOpen((o) => !o)}
+            />
+            {statusModalOpen && (
+              <StatusModal
+                presence={presenceClass}
+                statusEmoji={statusEmoji}
+                statusText={statusText}
+                isDnd={isDnd}
+                onSave={handleStatusSave}
+                onClear={handleStatusClear}
+                onClose={() => setStatusModalOpen(false)}
+              />
+            )}
+          </div>
           <button
             className="share-button"
             type="button"
@@ -1262,7 +1572,7 @@ export function App() {
             {markdownEditMode ? <SaveIcon /> : <EditIcon />}
           </button>
           <button
-            className="settings-button"
+            className="settings-gear-button"
             type="button"
             title="Settings"
             aria-label="Settings"

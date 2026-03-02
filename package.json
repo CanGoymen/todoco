@@ -1,7 +1,7 @@
 {
   "name": "todoco",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.1.0",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -11,6 +11,8 @@
     "dev:desktop": "npm --workspace @todoco/desktop run tauri:dev",
     "build:desktop": "npm --workspace @todoco/desktop run tauri:build",
     "build:desktop:signed": "npm --workspace @todoco/desktop run tauri:build:signed",
+    "dev:mobile": "npm --workspace @todoco/desktop run dev:mobile",
+    "build:mobile": "npm --workspace @todoco/desktop run build:mobile",
     "test": "node --test packages/shared/test/*.test.js"
   }
 }

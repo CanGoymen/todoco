@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api/core";
 import { getLoggedInUser, setLoggedInUser } from "../lib/config.js";
 import { updateProfile } from "../lib/api.js";
 

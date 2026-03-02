@@ -613,6 +613,38 @@ app.delete("/admin-api/workspaces/:id/versions", async (request, reply) => {
   }
 });
 
+app.patch("/admin-api/workspaces/:id/settings", async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const { location_enabled } = request.body || {};
+    const { states } = mustInit();
+    await states.updateOne(
+      { workspace_id: id },
+      { $set: { location_enabled: Boolean(location_enabled), updated_at: new Date().toISOString() } }
+    );
+    // Notify connected clients immediately
+    hub.broadcast(id, {
+      type: "workspace_settings_update",
+      payload: { location_enabled: Boolean(location_enabled) }
+    });
+    return { ok: true };
+  } catch (error) {
+    app.log.error("Error updating workspace settings:", error);
+    return reply.code(500).send({ error: "Failed to update workspace settings" });
+  }
+});
+
+app.get("/workspace/:id/settings", async (request, reply) => {
+  if (!isAuthorized(request)) {
+    return reply.code(401).send({ error: "unauthorized" });
+  }
+  const { id } = request.params;
+  const { states } = mustInit();
+  const ws = await states.findOne({ workspace_id: id }, { projection: { location_enabled: 1 } });
+  if (!ws) return reply.code(404).send({ error: "not_found" });
+  return { location_enabled: ws.location_enabled ?? false };
+});
+
 app.get("/tasks", async (request, reply) => {
   const hasAccess = await checkWorkspaceAccess(request, reply);
   if (!hasAccess) return;
@@ -704,15 +736,19 @@ app.register(async function (fastify) {
       return;
     }
 
-    // Username'i query param'dan al (opsiyonel, varsa unique user counting için)
+    // Username query param zorunlu
     const username = readQueryParam(request, "username") || null;
+    if (!username) {
+      socket.close(1008, "username_required");
+      return;
+    }
+
     const userEmail = readUserEmail(request);
     console.log("🔌 WebSocket connection:", { workspaceId, username, userEmail });
 
-    hub.addClient(workspaceId, socket, username);
-
     (async () => {
-      // Check workspace access
+      // Check workspace access — must happen BEFORE addClient to prevent unauthorized presence broadcast
+      // Note: userEmail may be empty if client doesn't send it (token auth is the primary gate)
       if (userEmail) {
         const hasAccess = await canUserAccessWorkspace(userEmail, workspaceId);
         if (!hasAccess) {
@@ -720,6 +756,8 @@ app.register(async function (fastify) {
           return;
         }
       }
+
+      hub.addClient(workspaceId, socket, username);
 
       hub.send(socket, {
         type: "task_list_full",
@@ -740,6 +778,30 @@ app.register(async function (fastify) {
             payload: { tasks: await getTasks(workspaceId) }
           });
           hub.send(socket, hub.getPresencePayload(workspaceId));
+          return;
+        }
+
+        if (message.type === "presence_idle_update") {
+          const idle = Boolean(message.payload?.idle);
+          hub.setIdleStatus(workspaceId, username, idle);
+          return;
+        }
+
+        if (message.type === "user_status_update") {
+          hub.setUserStatus(workspaceId, username, {
+            emoji: message.payload?.emoji || "",
+            text: message.payload?.text || ""
+          });
+          return;
+        }
+
+        if (message.type === "user_dnd_update") {
+          hub.setUserDnd(workspaceId, username, Boolean(message.payload?.dnd));
+          return;
+        }
+
+        if (message.type === "user_location_update") {
+          hub.setUserLocation(workspaceId, username, String(message.payload?.location || ""));
           return;
         }
 

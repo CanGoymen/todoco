@@ -8,7 +8,7 @@ export async function getSystemIdleTime() {
   }
 
   try {
-    const { invoke } = await import("@tauri-apps/api/tauri");
+    const { invoke } = await import("@tauri-apps/api/core");
     const idleTime = await invoke("get_system_idle_time");
     return idleTime;
   } catch (error) {
@@ -34,7 +34,7 @@ export async function showNotification(title, body) {
   }
 
   try {
-    const { isPermissionGranted, requestPermission, sendNotification } = await import("@tauri-apps/api/notification");
+    const { isPermissionGranted, requestPermission, sendNotification } = await import("@tauri-apps/plugin-notification");
 
     let granted = await isPermissionGranted();
     if (!granted) {
@@ -59,14 +59,12 @@ export async function openEditorWindow() {
   }
 
   try {
-    const { WebviewWindow } = await import("@tauri-apps/api/window");
+    const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
 
-    // Mevcut editor window varsa onu focus et
     const existingLabel = "markdown-editor";
-    const { getCurrent, WebviewWindow: WW } = await import("@tauri-apps/api/window");
 
     try {
-      const existing = WW.getByLabel(existingLabel);
+      const existing = await WebviewWindow.getByLabel(existingLabel);
       if (existing) {
         await existing.setFocus();
         return;

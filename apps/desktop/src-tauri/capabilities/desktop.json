@@ -1,0 +1,13 @@
+{
+  "identifier": "desktop-only",
+  "description": "Desktop-only capabilities (tray, autostart)",
+  "platforms": ["linux", "macOS", "windows"],
+  "windows": ["main"],
+  "permissions": [
+    "core:tray:default",
+    "autostart:default",
+    "autostart:allow-is-enabled",
+    "autostart:allow-enable",
+    "autostart:allow-disable"
+  ]
+}

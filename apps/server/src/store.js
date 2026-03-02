@@ -197,6 +197,7 @@ async function seedWorkspaceIfMissing(workspaceId) {
   const state = {
     workspace_id: workspaceId,
     secret,
+    location_enabled: false,
     tasks: normalized,
     version: 1,
     updated_at: seededAt
@@ -359,6 +360,23 @@ export async function initStore(options = {}) {
     );
 
     console.log(`✅ Added secrets to ${workspacesWithoutSecret.length} existing workspaces`);
+  }
+
+  // Migration: Add location_enabled to existing workspaces
+  const workspacesWithoutLocation = await collections.states.find({
+    location_enabled: { $exists: false }
+  }).toArray();
+
+  if (workspacesWithoutLocation.length > 0) {
+    await Promise.all(
+      workspacesWithoutLocation.map(workspace =>
+        collections.states.updateOne(
+          { _id: workspace._id },
+          { $set: { location_enabled: false, updated_at: nowIso() } }
+        )
+      )
+    );
+    console.log(`✅ Added location_enabled to ${workspacesWithoutLocation.length} existing workspaces`);
   }
 
   // Migration: Add workspaces field to existing users
@@ -666,6 +684,7 @@ export async function listWorkspaces() {
   return docs.map(doc => ({
     id: doc.workspace_id,
     secret: doc.secret || '',
+    location_enabled: doc.location_enabled ?? false,
     taskCount: doc.tasks?.length || 0,
     lastModified: doc.updated_at || doc._id.getTimestamp()
   }));
@@ -711,6 +730,7 @@ export async function createWorkspace(workspaceId) {
   await states.insertOne({
     workspace_id: normalizedId,
     secret,
+    location_enabled: false,
     tasks: [],
     version: 0,
     updated_at: now
